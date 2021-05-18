@@ -3484,6 +3484,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "hex-literal",
+ "pallet-assets",
  "pallet-aura",
  "pallet-balances",
  "pallet-grandpa",
@@ -3507,6 +3508,7 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "substrate-wasm-builder",
+ "uniarts-primitives",
 ]
 
 [[package]]
@@ -3638,6 +3640,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ff55baddef9e4ad00f88b6c743a2a8062d4c6ade126c2a528644b8e444d52ce"
 dependencies = [
  "stable_deref_trait",
+]
+
+[[package]]
+name = "pallet-assets"
+version = "3.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -7677,6 +7695,18 @@ dependencies = [
  "crunchy",
  "hex",
  "static_assertions",
+]
+
+[[package]]
+name = "uniarts-primitives"
+version = "3.0.0"
+dependencies = [
+ "parity-scale-codec",
+ "serde",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
