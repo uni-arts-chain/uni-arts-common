@@ -1,6 +1,6 @@
 [package]
 name = "module-support"
-version = "0.1.0"
+version = "3.0.0"
 authors = ["terry.tu <tuminfei1981@gmail.com>"]
 edition = "2018"
 
@@ -14,7 +14,7 @@ sp-std = { version = "3.0.0", default-features = false }
 sp-runtime = { version = "3.0.0", default-features = false }
 sp-core = { version = "3.0.0", default-features = false }
 
-uniarts-primitives = { version = "3.0.0", default-features = false, path = "../../primitives" }
+uniarts-primitives = { version = "3.0.0", default-features = false, path = "../primitives" }
 
 [features]
 default = ["std"]
