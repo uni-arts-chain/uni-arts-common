@@ -1,8 +1,8 @@
 [package]
-authors = ['Substrate DevHub <https://github.com/substrate-developer-hub>']
+authors = ["UniArts Developers"]
 description = 'FRAME pallet nft'
 edition = '2018'
-homepage = 'https://substrate.io'
+homepage = 'https://uniarts.network'
 license = 'Unlicense'
 name = 'pallet-nft-multi'
 version = '3.0.0'
