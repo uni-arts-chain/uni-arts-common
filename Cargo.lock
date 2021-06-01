@@ -3900,6 +3900,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-nft-blindbox"
+version = "3.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "module-support",
+ "orml-currencies",
+ "orml-tokens",
+ "orml-traits",
+ "pallet-balances",
+ "pallet-nft-multi",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "uniarts-primitives",
+]
+
+[[package]]
 name = "pallet-nft-multi"
 version = "3.0.0"
 dependencies = [
