@@ -7955,6 +7955,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "uniarts-common"
+version = "3.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-authorship",
+ "pallet-balances",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "sp-runtime",
+ "sp-std",
+ "uniarts-primitives",
+]
+
+[[package]]
 name = "uniarts-primitives"
 version = "3.0.0"
 dependencies = [
