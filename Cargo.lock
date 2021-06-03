@@ -4090,6 +4090,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-staking"
+version = "3.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-sudo"
 version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
