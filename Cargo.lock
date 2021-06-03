@@ -3389,6 +3389,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "module-prices"
+version = "3.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "module-support",
+ "orml-traits",
+ "orml-utilities",
+ "parity-scale-codec",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "uniarts-primitives",
+]
+
+[[package]]
 name = "module-support"
 version = "3.0.0"
 dependencies = [
