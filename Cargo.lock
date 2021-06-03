@@ -4072,6 +4072,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-stake"
+version = "3.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "serde",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-sudo"
 version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
