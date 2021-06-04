@@ -5,6 +5,8 @@ panic = 'unwind'
 members = [
     'node',
     'pallets/*',
+    'pallets/staking/rpc',
+    'pallets/staking/rpc/runtime-api',
     'primitives',
     'support',
     'runtime',
