@@ -1,8 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{
-	decl_module, decl_storage,
-	decl_event, decl_error,
+	decl_module, decl_storage, 
+	decl_event, decl_error, 
 	dispatch, ensure,
 	Parameter,
 	traits::{Currency, Get, FindAuthor},
@@ -33,13 +33,13 @@ pub trait WeightInfo {
 
 
 pub type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-pub type AccountId<T> = <T as frame_system::Config>::AccountId;
+	<<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+pub type AccountId<T> = <T as frame_system::Trait>::AccountId;
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
-pub trait Config: pallet_aura::Config + pallet_session::Config {
+pub trait Trait: pallet_aura::Trait + pallet_session::Trait {
 	// Because this pallet emits events, it depends on the runtime's definition of an event.
-	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 
 	type Balance: Parameter + Member + AtLeast32BitUnsigned + Codec + Default + Copy +
 		MaybeSerializeDeserialize;
@@ -57,11 +57,11 @@ pub trait Config: pallet_aura::Config + pallet_session::Config {
 
 // The pallet's runtime storage items.
 decl_storage! {
-	trait Store for Module<T: Config> as Rewards {
+	trait Store for Module<T: Trait> as Rewards {
 		pub MatureRewards get(fn mature_rewards): map hasher(twox_64_concat) AccountId<T> => BalanceOf<T>;
 		pub ImmatureRewards get(fn immature_rewards): map hasher(twox_64_concat) AccountId<T> => (BalanceOf<T>, T::BlockNumber);
 
-
+		
 		pub MinedRewards get(fn mined_rewards): BalanceOf<T>;
 		pub CurrentRewardsPerBlock get(fn current_reward_per_block): BalanceOf<T> = T::RewardPerBlock::get();
 		pub StartBlock get(fn start_block): Option<T::BlockNumber>;
@@ -70,8 +70,8 @@ decl_storage! {
 
 
 decl_event!(
-	pub enum Event<T>
-		where
+	pub enum Event<T> 
+		where 
 			AccountId = AccountId<T>,
 			Balance = BalanceOf<T>,
 	{
@@ -81,13 +81,13 @@ decl_event!(
 
 // Errors inform users that something went wrong.
 decl_error! {
-	pub enum Error for Module<T: Config> {
+	pub enum Error for Module<T: Trait> {
 		NoReward,
 	}
 }
 
 decl_module! {
-	pub struct Module<T: Config> for enum Call where origin: T::Origin {
+	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		type Error = Error<T>;
 		fn deposit_event() = default;
 
@@ -95,12 +95,12 @@ decl_module! {
 		pub fn set_start_block(origin, number: T::BlockNumber) -> dispatch::DispatchResult {
 			ensure_root(origin)?;
 			if Self::start_block() == None {
-				<StartBlock<T>>::put(number);
+				<StartBlock<T>>::put(number);	
 			}
 			Ok(())
 		}
 
-		#[weight = <T as Config>::WeightInfo::claim()]
+		#[weight = <T as Trait>::WeightInfo::claim()]
 		pub fn claim(origin) -> dispatch::DispatchResult {
 			let who = ensure_signed(origin)?;
 			let mut rewards = Self::mature_rewards(&who);
@@ -111,7 +111,7 @@ decl_module! {
 			);
 			let now = frame_system::Module::<T>::block_number();
 			let (immature_rewards, n) = Self::immature_rewards(&who);
-			if now > n + <T as frame_system::Config>::BlockNumber::from(14400 * 14) {
+			if now > n + <T as frame_system::Trait>::BlockNumber::from(14400 * 14) {
 				rewards = rewards.saturating_add(immature_rewards);
 			}
 
@@ -138,7 +138,7 @@ decl_module! {
 
 			let logs = frame_system::Module::<T>::digest().logs;
 			let digest = logs.iter().filter_map(|s| s.as_pre_runtime());
-
+			
 			if let Some(index) = pallet_aura::Module::<T>::find_author(digest) {
 				let validator = pallet_session::Module::<T>::validators()[index as usize].clone();
 				if let Some(account) = T::AccountIdOf::convert(validator) {
@@ -159,7 +159,7 @@ decl_module! {
 }
 
 
-impl<T: Config> Module<T> {
+impl<T: Trait> Module<T> {
 	fn payout_rewards(author: AccountId<T>, amount: BalanceOf<T>) {
 		let _ = T::Currency::deposit_into_existing(&author, amount);
 	}

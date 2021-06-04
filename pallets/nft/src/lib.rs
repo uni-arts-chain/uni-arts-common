@@ -9,20 +9,29 @@ pub use frame_support::{
     ensure, parameter_types, Parameter,
     traits::{
         Currency, LockableCurrency, ExistenceRequirement, Get, Imbalance, KeyOwnerProofSystem, OnUnbalanced,
-        Randomness, WithdrawReasons
+        Randomness, WithdrawReason, WithdrawReasons
     },
     weights::{
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
         DispatchInfo, GetDispatchInfo, IdentityFee, Pays, PostDispatchInfo, Weight,
         WeightToFeePolynomial,
-    }, StorageValue, debug,
+    },
+    IsSubType, StorageValue, debug,
 };
 
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::sp_std::prelude::Vec;
 use sp_runtime::{
     ModuleId,
-    traits::{ SaturatedConversion, Saturating, Zero, AccountIdConversion}
+    traits::{
+        DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SaturatedConversion, Saturating,
+        SignedExtension, Zero, AccountIdConversion
+    },
+    transaction_validity::{
+        InvalidTransaction, TransactionPriority, TransactionValidity, TransactionValidityError,
+        ValidTransaction,
+    },
+    FixedPointOperand, FixedU128,
 };
 use sp_std::prelude::*;
 use sp_core::H160;
@@ -272,12 +281,12 @@ pub enum TransferFromAccountError {
     InsufficientBalance,
 }
 
-pub type CurrencyBalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-pub type AccountId<T> = <T as frame_system::Config>::AccountId;
-// pub type Name<T> = <T as frame_system::Config>::Name;
+pub type CurrencyBalanceOf<T> = <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+pub type AccountId<T> = <T as frame_system::Trait>::AccountId;
+// pub type Name<T> = <T as frame_system::Trait>::Name;
 
 
-pub trait Config: system::Config + pallet_names::Config {
+pub trait Trait: system::Trait + pallet_names::Trait {
     /// The NFT's module id, used for deriving its sovereign account ID.
     type ModuleId: Get<ModuleId>;
 
@@ -285,14 +294,14 @@ pub trait Config: system::Config + pallet_names::Config {
     // type Currency: Currency<AccountId<Self>> + Send + Sync;
     type Currency: Currency<AccountId<Self>> + LockableCurrency<AccountId<Self>, Moment=Self::BlockNumber> + Send + Sync;
 
-    type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 
     /// Weight information for the extrinsics in this module.
     type WeightInfo: WeightInfo;
 }
 
 decl_storage! {
-    trait Store for Module<T: Config> as Nft {
+    trait Store for Module<T: Trait> as Nft {
 
         // Private members
         NextCollectionID: u64;
@@ -354,9 +363,9 @@ decl_storage! {
         pub NextAuctionID: u64 = 1;
 
         /// Auction
-        pub AuctionList get(fn get_auction): double_map hasher(blake2_128_concat) u64, hasher(blake2_128_concat) u64 => Auction<T::AccountId, T::BlockNumber>;
+        pub AuctionList get(fn get_auction): double_map hasher(blake2_128_concat) u64, hasher(blake2_128_concat) u64 => Auction<T::AccountId, T::BlockNumber>; 
 
-        /// Bid histories
+        /// Bid histories 
         pub BidHistoryList get(fn bid_history_list): map hasher(identity) u64 => Vec<BidHistory<T::AccountId, T::BlockNumber>>;
 
     }
@@ -365,7 +374,7 @@ decl_storage! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as system::Config>::AccountId,
+        AccountId = <T as system::Trait>::AccountId,
     {
         Created(u64, u8, AccountId),
         ItemCreated(u64, u64),
@@ -386,7 +395,7 @@ decl_event!(
 );
 
 decl_error! {
-	pub enum Error for Module<T: Config> {
+	pub enum Error for Module<T: Trait> {
 		NamesNotExists,
 		SaleOrderNotExists,
 		NamesOwnerInvalid,
@@ -395,7 +404,7 @@ decl_error! {
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         // Errors must be initialized if they are used by the pallet.
 		type Error = Error<T>;
 
@@ -670,9 +679,9 @@ decl_module! {
         }
 
         #[weight = T::WeightInfo::create_item()]
-        pub fn create_item(origin,
-            collection_id: u64,
-            properties: Vec<u8>,
+        pub fn create_item(origin, 
+            collection_id: u64, 
+            properties: Vec<u8>, 
             owner: T::AccountId,
             royalty_rate: u64,
             royalty_expired_at: T::BlockNumber,
@@ -777,7 +786,7 @@ decl_module! {
             let item_owner = Self::is_item_owner(sender.clone(), collection_id, item_id);
             if !item_owner
             {
-                if !Self::is_owner_or_admin_permissions(collection_id, sender.clone()) {
+                if !Self::is_owner_or_admin_permissions(collection_id, sender.clone()) {  
                     Self::check_white_list(collection_id, sender.clone())?;
                 }
             }
@@ -1027,14 +1036,14 @@ decl_module! {
 
             // Moves funds from buyer account into the owner's account
             // We don't use T::Currency::transfer() to prevent fees being incurred.
-            let negative_imbalance = <T as Config>::Currency::withdraw(
+            let negative_imbalance = <T as Trait>::Currency::withdraw(
                 &sender,
                 balance_price,
                 WithdrawReasons::all(),
                 ExistenceRequirement::AllowDeath,
             )?;
 
-            <T as Config>::Currency::resolve_creating(&nft_owner, negative_imbalance);
+            <T as Trait>::Currency::resolve_creating(&nft_owner, negative_imbalance);
 
             // Moves nft from locker account into the buyer's account
             match target_collection.mode
@@ -1205,14 +1214,14 @@ decl_module! {
 
             // Moves funds from buyer account into the owner's account
             // We don't use T::Currency::transfer() to prevent fees being incurred.
-            let negative_imbalance = <T as Config>::Currency::withdraw(
+            let negative_imbalance = <T as Trait>::Currency::withdraw(
                 &sender,
                 balance_price,
                 WithdrawReasons::all(),
                 ExistenceRequirement::AllowDeath,
             )?;
 
-            <T as Config>::Currency::resolve_creating(&nft_owner, negative_imbalance);
+            <T as Trait>::Currency::resolve_creating(&nft_owner, negative_imbalance);
 
             // Moves nft from locker account into the buyer's account
             match target_collection.mode
@@ -1320,7 +1329,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             let now = <system::Module<T>>::block_number();
             ensure!(now < end_time, "Invalid end_time");
-
+                
             let auction = Self::get_auction(collection_id, item_id);
             ensure!(auction.id == 0, "The collection is on auction");
 
@@ -1338,7 +1347,7 @@ decl_module! {
                 CollectionMode::ReFungible(_, _)  => Self::transfer_refungible(collection_id, item_id, value, sender.clone(), recipient)?,
                 _ => ()
             };
-
+            
             // Create auction
             let auction = Auction {
                 id: NextAuctionID::get(),
@@ -1356,7 +1365,7 @@ decl_module! {
             <AuctionList<T>>::insert(collection_id, item_id, auction);
 
             NextAuctionID::mutate(|id| *id += 1);
-
+            
             Self::deposit_event(RawEvent::AuctionCreated(auction_id, collection_id, item_id, value, start_price, sender));
 
             Ok(())
@@ -1372,11 +1381,11 @@ decl_module! {
             ensure!(now <= auction.end_time, "Ended");
             let price = auction.current_price.saturating_add(auction.increment);
             let balance_price = CurrencyBalanceOf::<T>::saturated_from(price.into());
-            let free_balance = <T as Config>::Currency::free_balance(&sender);
+            let free_balance = <T as Trait>::Currency::free_balance(&sender);
             ensure!(free_balance > balance_price, "Insufficient balance");
 
             let lock_id = Self::auction_lock_id(auction.id);
-            <T as Config>::Currency::extend_lock(lock_id, &sender, balance_price, WithdrawReasons::all());
+            <T as Trait>::Currency::extend_lock(lock_id, &sender, balance_price, WithdrawReasons::all());
 
 
             let bid_history = BidHistory {
@@ -1389,7 +1398,7 @@ decl_module! {
             <BidHistoryList<T>>::mutate(auction.id, |histories| {
                 histories.push(bid_history)
             });
-
+            
             <AuctionList<T>>::mutate(collection_id, item_id, |auction| {
                 auction.current_price = price;
             });
@@ -1401,7 +1410,7 @@ decl_module! {
         }
 
         #[weight = T::WeightInfo::finish_auction()]
-        pub fn finish_auction(origin, collection_id: u64, item_id: u64) -> DispatchResult {
+        pub fn finish_auction(origin, collection_id: u64, item_id: u64) -> DispatchResult { 
             let _ = ensure_signed(origin)?;
             let auction = Self::get_auction(collection_id, item_id);
             ensure!(auction.id > 0, "The collection is not on auction");
@@ -1424,20 +1433,20 @@ decl_module! {
                 };
 
                 let lock_id = Self::auction_lock_id(auction.id);
-                <T as Config>::Currency::remove_lock(lock_id, &winner.bidder);
+                <T as Trait>::Currency::remove_lock(lock_id, &winner.bidder);
                 let balance = CurrencyBalanceOf::<T>::saturated_from(winner.bid_price.into());
-                let negative_imbalance = <T as Config>::Currency::withdraw(
+                let negative_imbalance = <T as Trait>::Currency::withdraw(
                     &winner.bidder,
                     balance,
                     WithdrawReasons::all(),
                     ExistenceRequirement::AllowDeath,
                 )?;
 
-                <T as Config>::Currency::resolve_creating(&auction.owner, negative_imbalance);
+                <T as Trait>::Currency::resolve_creating(&auction.owner, negative_imbalance);
 
                 for i in 0..(histories.len() - 1) {
                     let h = &histories[i];
-                    <T as Config>::Currency::remove_lock(lock_id, &h.bidder);
+                    <T as Trait>::Currency::remove_lock(lock_id, &h.bidder);
                 }
 
                 // Create order history
@@ -1505,7 +1514,7 @@ decl_module! {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Trait> Module<T> {
     /// The account ID of the NFT.
 	///
 	/// This actually does computation. If you need to keep using it, then make sure you cache the
@@ -1687,7 +1696,7 @@ impl<T: Config> Module<T> {
     }
 
     fn check_owner_or_admin_permissions(collection_id: u64, subject: T::AccountId) -> DispatchResult {
-
+        
         Self::collection_exists(collection_id)?;
         let result = Self::is_owner_or_admin_permissions(collection_id, subject.clone());
 
@@ -1785,7 +1794,7 @@ impl<T: Config> Module<T> {
     }
 }
 
-impl<T: Config> NftManager<T::AccountId, T::BlockNumber> for Module<T> {
+impl<T: Trait> NftManager<T::AccountId, T::BlockNumber> for Module<T> {
 
     fn transfer_fungible(
         collection_id: u64,
@@ -2036,13 +2045,210 @@ impl<T: Config> NftManager<T::AccountId, T::BlockNumber> for Module<T> {
             let fee_max = CurrencyBalanceOf::<T>::saturated_from(10000u64.into());
             let royalty_fee = CurrencyBalanceOf::<T>::saturated_from(order_price.into()).saturating_mul(fee_rate) / fee_max;
 
-            let imbalance = <T as Config>::Currency::withdraw(
+            let imbalance = <T as Trait>::Currency::withdraw(
                 &buyer,
                 royalty_fee,
                 WithdrawReasons::all(),
                 ExistenceRequirement::AllowDeath,
             )?;
-            <T as Config>::Currency::resolve_creating(&royalty.owner, imbalance);
+            <T as Trait>::Currency::resolve_creating(&royalty.owner, imbalance);
+        }
+        Ok(())
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Economic models
+
+/// Fee multiplier.
+pub type Multiplier = FixedU128;
+
+type BalanceOf<T> = <<T as transaction_payment::Trait>::Currency as Currency<
+    <T as system::Trait>::AccountId,
+>>::Balance;
+type NegativeImbalanceOf<T> = <<T as transaction_payment::Trait>::Currency as Currency<
+    <T as system::Trait>::AccountId,
+>>::NegativeImbalance;
+
+/// Require the transactor pay for themselves and maybe include a tip to gain additional priority
+/// in the queue.
+#[derive(Encode, Decode, Clone, Eq, PartialEq)]
+pub struct ChargeTransactionPayment<T: transaction_payment::Trait + Send + Sync>(
+    #[codec(compact)] BalanceOf<T>,
+);
+
+impl<T: Trait + transaction_payment::Trait + Send + Sync> sp_std::fmt::Debug
+    for ChargeTransactionPayment<T>
+{
+    #[cfg(feature = "std")]
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+        write!(f, "ChargeTransactionPayment<{:?}>", self.0)
+    }
+    #[cfg(not(feature = "std"))]
+    fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+        Ok(())
+    }
+}
+
+impl<T: Trait + transaction_payment::Trait + Send + Sync> ChargeTransactionPayment<T>
+where
+    T::Call:
+        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo> + IsSubType<Call<T>>,
+    BalanceOf<T>: Send + Sync + FixedPointOperand,
+{
+    /// utility constructor. Used only in client/factory code.
+    pub fn from(fee: BalanceOf<T>) -> Self {
+        Self(fee)
+    }
+
+    pub fn traditional_fee(
+        len: usize,
+        info: &DispatchInfoOf<T::Call>,
+        tip: BalanceOf<T>,
+    ) -> BalanceOf<T>
+    where
+        T::Call: Dispatchable<Info = DispatchInfo>,
+    {
+        <transaction_payment::Module<T>>::compute_fee(len as u32, info, tip)
+    }
+
+    fn withdraw_fee(
+        &self,
+        who: &T::AccountId,
+        call: &T::Call,
+        info: &DispatchInfoOf<T::Call>,
+        len: usize,
+    ) -> Result<(BalanceOf<T>, Option<NegativeImbalanceOf<T>>), TransactionValidityError> {
+        let tip = self.0;
+
+        // Set fee based on call type. Creating collection costs 1 Unique.
+        // All other transactions have traditional fees so far
+        let fee = match call.is_sub_type() {
+            Some(Call::create_collection(..)) => <BalanceOf<T>>::from(1_000_000_000),
+            _ => Self::traditional_fee(len, info, tip), // Flat fee model, use only for testing purposes
+                                                        // _ => <BalanceOf<T>>::from(100)
+        };
+
+        // Determine who is paying transaction fee based on ecnomic model
+        // Parse call to extract collection ID and access collection sponsor
+        let sponsor: T::AccountId = match call.is_sub_type() {
+            Some(Call::create_item(collection_id, _properties, _owner, _, _)) => {
+                <Collection<T>>::get(collection_id).sponsor
+            }
+            Some(Call::transfer(_new_owner, collection_id, _item_id, _value)) => {
+                <Collection<T>>::get(collection_id).sponsor
+            }
+
+            _ => T::AccountId::default(),
+        };
+
+        let mut who_pays_fee: T::AccountId = sponsor.clone();
+        if sponsor == T::AccountId::default() {
+            who_pays_fee = who.clone();
+        }
+
+        // Only mess with balances if fee is not zero.
+        if fee.is_zero() {
+            return Ok((fee, None));
+        }
+
+        match <T as transaction_payment::Trait>::Currency::withdraw(
+            &who_pays_fee,
+            fee,
+            if tip.is_zero() {
+                WithdrawReason::TransactionPayment.into()
+            } else {
+                WithdrawReason::TransactionPayment | WithdrawReason::Tip
+            },
+            ExistenceRequirement::KeepAlive,
+        ) {
+            Ok(imbalance) => Ok((fee, Some(imbalance))),
+            Err(_) => Err(InvalidTransaction::Payment.into()),
+        }
+    }
+}
+
+impl<T: Trait + transaction_payment::Trait + Send + Sync> SignedExtension
+    for ChargeTransactionPayment<T>
+where
+    BalanceOf<T>: Send + Sync + From<u64> + FixedPointOperand,
+    T::Call:
+        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo> + IsSubType<Call<T>>,
+{
+    const IDENTIFIER: &'static str = "ChargeTransactionPayment";
+    type AccountId = T::AccountId;
+    type Call = T::Call;
+    type AdditionalSigned = ();
+    type Pre = (
+        BalanceOf<T>,
+        Self::AccountId,
+        Option<NegativeImbalanceOf<T>>,
+        BalanceOf<T>,
+    );
+    fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
+        Ok(())
+    }
+
+    fn validate(
+        &self,
+        who: &Self::AccountId,
+        call: &Self::Call,
+        info: &DispatchInfoOf<Self::Call>,
+        len: usize,
+    ) -> TransactionValidity {
+        let (fee, _) = self.withdraw_fee(who, call, info, len)?;
+
+        let mut r = ValidTransaction::default();
+        // NOTE: we probably want to maximize the _fee (of any type) per weight unit_ here, which
+        // will be a bit more than setting the priority to tip. For now, this is enough.
+        r.priority = fee.saturated_into::<TransactionPriority>();
+        Ok(r)
+    }
+
+    fn pre_dispatch(
+        self,
+        who: &Self::AccountId,
+        call: &Self::Call,
+        info: &DispatchInfoOf<Self::Call>,
+        len: usize,
+    ) -> Result<Self::Pre, TransactionValidityError> {
+        let (fee, imbalance) = self.withdraw_fee(who, call, info, len)?;
+        Ok((self.0, who.clone(), imbalance, fee))
+    }
+
+    fn post_dispatch(
+        pre: Self::Pre,
+        info: &DispatchInfoOf<Self::Call>,
+        post_info: &PostDispatchInfoOf<Self::Call>,
+        len: usize,
+        _result: &DispatchResult,
+    ) -> Result<(), TransactionValidityError> {
+        let (tip, who, imbalance, fee) = pre;
+        if let Some(payed) = imbalance {
+            let actual_fee = <transaction_payment::Module<T>>::compute_actual_fee(
+                len as u32, info, post_info, tip,
+            );
+            let refund = fee.saturating_sub(actual_fee);
+            let actual_payment =
+                match <T as transaction_payment::Trait>::Currency::deposit_into_existing(
+                    &who, refund,
+                ) {
+                    Ok(refund_imbalance) => {
+                        // The refund cannot be larger than the up front payed max weight.
+                        // `PostDispatchInfo::calc_unspent` guards against such a case.
+                        match payed.offset(refund_imbalance) {
+                            Ok(actual_payment) => actual_payment,
+                            Err(_) => return Err(InvalidTransaction::Payment.into()),
+                        }
+                    }
+                    // We do not recreate the account using the refund. The up front payment
+                    // is gone in that case.
+                    Err(_) => payed,
+                };
+            let imbalances = actual_payment.split(tip);
+            <T as transaction_payment::Trait>::OnTransactionPayment::on_unbalanceds(
+                Some(imbalances.0).into_iter().chain(Some(imbalances.1)),
+            );
         }
         Ok(())
     }

@@ -61,7 +61,7 @@ pub struct BidHistoryV1<AccountId, BlockNumber> {
     pub bid_time: BlockNumber,
 }
 
-pub fn migrate_v1_to_t2<T: Config>() -> Weight {
+pub fn migrate_v1_to_t2<T: Trait>() -> Weight {
     if PalletStorageVersion::get() == StorageVersion::V1_0_0 {
         PalletStorageVersion::put(StorageVersion::V2_0_0);
 
@@ -162,7 +162,7 @@ pub fn migrate_v1_to_t2<T: Config>() -> Weight {
                 })
                 .collect::<Vec<_>>()
         ));
-		Weight::max_value()
+        T::MaximumBlockWeight::get()
     } else {
         0
     }

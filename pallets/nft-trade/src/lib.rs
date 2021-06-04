@@ -7,13 +7,14 @@ pub use frame_support::{
     ensure, parameter_types, Parameter,
     traits::{
         Currency, LockableCurrency, ExistenceRequirement, Get, Imbalance, KeyOwnerProofSystem, OnUnbalanced,
-        Randomness, WithdrawReasons
+        Randomness, WithdrawReason, WithdrawReasons
     },
     weights::{
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
         DispatchInfo, GetDispatchInfo, IdentityFee, Pays, PostDispatchInfo, Weight,
         WeightToFeePolynomial,
-    }, StorageValue, debug,
+    },
+    IsSubType, StorageValue, debug,
 };
 
 use frame_system::{self as system, ensure_signed};
@@ -74,21 +75,21 @@ pub struct SaleOrderHistory<AccountId, BlockNumber> {
     pub buy_time: BlockNumber,
 }
 
-pub trait Config: system::Config + pallet_nft::Config {
+pub trait Trait: system::Trait + pallet_nft::Trait {
     /// The NFT's module id, used for deriving its sovereign account ID.
     type LockModuleId: Get<ModuleId>;
 
     /// Nft manager.
     type NftHandler: NftManager<Self::AccountId, Self::BlockNumber>;
 
-    type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 
     /// Weight information for the extrinsics in this module.
     type WeightInfo: WeightInfo;
 }
 
 decl_storage! {
-    trait Store for Module<T: Config> as NftTrade {
+    trait Store for Module<T: Trait> as NftTrade {
 
         /// Consignment
         pub SaleOrderList get(fn nft_trade_id): double_map hasher(blake2_128_concat) u64, hasher(blake2_128_concat) u64 => SaleOrder<T::AccountId>;
@@ -113,7 +114,7 @@ decl_storage! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Config>::AccountId,
+        AccountId = <T as frame_system::Trait>::AccountId,
         CurrencyId = CurrencyId,
     {
         ItemOrderCreated(u64, u64, u64, u64, AccountId, u64, CurrencyId),
@@ -126,14 +127,14 @@ decl_event!(
 );
 
 decl_error! {
-	pub enum Error for Module<T: Config> {
+	pub enum Error for Module<T: Trait> {
 		SaleOrderNotExists,
         AccountNotNftOwner,
 	}
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         // Errors must be initialized if they are used by the pallet.
 		type Error = Error<T>;
 
@@ -142,7 +143,7 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        #[weight = <T as Config>::WeightInfo::create_sale_order()]
+        #[weight = <T as Trait>::WeightInfo::create_sale_order()]
         pub fn create_sale_order(origin, collection_id: u64, item_id: u64, value: u64, currency_id: CurrencyId, price: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
@@ -187,7 +188,7 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = <T as Config>::WeightInfo::cancel_sale_order()]
+        #[weight = <T as Trait>::WeightInfo::cancel_sale_order()]
         pub fn cancel_sale_order(origin, collection_id: u64, item_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
@@ -220,7 +221,7 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = <T as Config>::WeightInfo::accept_sale_order()]
+        #[weight = <T as Trait>::WeightInfo::accept_sale_order()]
         pub fn accept_sale_order(origin, collection_id: u64, item_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<SaleOrderList<T>>::contains_key(collection_id, item_id), Error::<T>::SaleOrderNotExists);
@@ -237,7 +238,7 @@ decl_module! {
 
             T::NftHandler::charge_royalty(sender.clone(), collection_id, item_id, currency_id, price, buy_time)?;
 
-            <T as pallet_nft::Config>::MultiCurrency::transfer(currency_id, &sender, &nft_owner, price.saturated_into())?;
+            <T as pallet_nft::Trait>::MultiCurrency::transfer(currency_id, &sender, &nft_owner, price.saturated_into())?;
 
             // Moves nft-multi from locker account into the buyer's account
             match target_collection.mode
@@ -279,7 +280,7 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = <T as Config>::WeightInfo::create_separable_sale_order()]
+        #[weight = <T as Trait>::WeightInfo::create_separable_sale_order()]
         pub fn create_separable_sale_order(origin, collection_id: u64, item_id: u64, value: u64, currency_id: CurrencyId, price: u64 ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
@@ -335,7 +336,7 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = <T as Config>::WeightInfo::cancel_separable_sale_order()]
+        #[weight = <T as Trait>::WeightInfo::cancel_separable_sale_order()]
         pub fn cancel_separable_sale_order(origin, order_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
@@ -378,7 +379,7 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = <T as Config>::WeightInfo::accept_sale_order()]
+        #[weight = <T as Trait>::WeightInfo::accept_sale_order()]
         pub fn accept_separable_sale_order(origin, order_id: u64, value: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(<SeparableSaleOrder<T>>::contains_key(order_id), Error::<T>::SaleOrderNotExists);
@@ -402,7 +403,7 @@ decl_module! {
 
             T::NftHandler::charge_royalty(sender.clone(), collection_id, item_id, currency_id, checked_value, buy_time)?;
 
-            <T as pallet_nft::Config>::MultiCurrency::transfer(currency_id, &sender, &nft_owner, checked_value.into())?;
+            <T as pallet_nft::Trait>::MultiCurrency::transfer(currency_id, &sender, &nft_owner, checked_value.into())?;
 
             // Moves nft-multi from locker account into the buyer's account
             match target_collection.mode
@@ -473,7 +474,7 @@ decl_module! {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Trait> Module<T> {
     /// The account ID of the NFT.
 	///
 	/// This actually does computation. If you need to keep using it, then make sure you cache the

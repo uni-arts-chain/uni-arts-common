@@ -7,4 +7,4 @@ pub use impls::*;
 
 use frame_support::{traits::Currency};
 
-pub type NegativeImbalance<T> = <pallet_balances::Module<T> as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
+pub type NegativeImbalance<T> = <pallet_balances::Module<T> as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;

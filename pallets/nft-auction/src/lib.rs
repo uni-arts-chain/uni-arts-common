@@ -7,13 +7,14 @@ pub use frame_support::{
     ensure, parameter_types, Parameter,
     traits::{
         Currency, LockableCurrency, ExistenceRequirement, Get, Imbalance, KeyOwnerProofSystem, OnUnbalanced,
-        Randomness, WithdrawReasons
+        Randomness, WithdrawReason, WithdrawReasons
     },
     weights::{
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
         DispatchInfo, GetDispatchInfo, IdentityFee, Pays, PostDispatchInfo, Weight,
         WeightToFeePolynomial,
-    }, StorageValue, debug,
+    },
+    IsSubType, StorageValue, debug,
 };
 
 use frame_system::{self as system, ensure_signed};
@@ -73,21 +74,21 @@ pub struct SaleOrderHistory<AccountId, BlockNumber> {
     pub buy_time: BlockNumber,
 }
 
-pub trait Config: system::Config + pallet_nft::Config {
+pub trait Trait: system::Trait + pallet_nft::Trait {
     /// The NFT's module id, used for deriving its sovereign account ID.
     type LockModuleId: Get<ModuleId>;
 
     /// Nft manager.
     type NftHandler: NftManager<Self::AccountId, Self::BlockNumber>;
 
-    type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 
     /// Weight information for the extrinsics in this module.
     type WeightInfo: WeightInfo;
 }
 
 decl_storage! {
-    trait Store for Module<T: Config> as NftAuction {
+    trait Store for Module<T: Trait> as NftAuction {
 
         /// Next auction id
         pub NextAuctionID: u64 = 1;
@@ -106,7 +107,7 @@ decl_storage! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Config>::AccountId,
+        AccountId = <T as frame_system::Trait>::AccountId,
         CurrencyId = CurrencyId,
     {
         AuctionCreated(u64, u64, u64, u64, u64, AccountId, CurrencyId),
@@ -117,13 +118,13 @@ decl_event!(
 );
 
 decl_error! {
-    pub enum Error for Module<T: Config> {
+    pub enum Error for Module<T: Trait> {
         NftInvalidEndTime,
     }
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         // Errors must be initialized if they are used by the pallet.
 		type Error = Error<T>;
 
@@ -132,7 +133,7 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        #[weight = <T as Config>::WeightInfo::create_auction()]
+        #[weight = <T as Trait>::WeightInfo::create_auction()]
         pub fn create_auction(origin, collection_id: u64, item_id: u64, value: u64, currency_id: CurrencyId, start_price: u64, increment: u64, start_time: T::BlockNumber, end_time: T::BlockNumber) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let now = <system::Module<T>>::block_number();
@@ -179,7 +180,7 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = <T as Config>::WeightInfo::bid()]
+        #[weight = <T as Trait>::WeightInfo::bid()]
         pub fn bid(origin, collection_id: u64, item_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let auction = Self::get_auction(collection_id, item_id);
@@ -189,11 +190,11 @@ decl_module! {
             ensure!(now <= auction.end_time, "Ended");
             let price = auction.current_price.saturating_add(auction.increment);
             let currency_id = auction.currency_id;
-            let free_balance = <T as pallet_nft::Config>::MultiCurrency::free_balance(currency_id, &sender);
+            let free_balance = <T as pallet_nft::Trait>::MultiCurrency::free_balance(currency_id, &sender);
             ensure!(free_balance > price.into(), "Insufficient balance");
 
             let lock_id = Self::auction_lock_id(auction.id);
-            <T as pallet_nft::Config>::MultiCurrency::extend_lock(lock_id, currency_id, &sender, price.into())?;
+            <T as pallet_nft::Trait>::MultiCurrency::extend_lock(lock_id, currency_id, &sender, price.into());
 
 
             let bid_history = BidHistory {
@@ -218,7 +219,7 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = <T as Config>::WeightInfo::finish_auction()]
+        #[weight = <T as Trait>::WeightInfo::finish_auction()]
         pub fn finish_auction(origin, collection_id: u64, item_id: u64) -> DispatchResult {
             let _ = ensure_signed(origin)?;
             let auction = Self::get_auction(collection_id, item_id);
@@ -243,12 +244,12 @@ decl_module! {
                 };
 
                 let lock_id = Self::auction_lock_id(auction.id);
-                <T as pallet_nft::Config>::MultiCurrency::remove_lock(lock_id, currency_id, &winner.bidder)?;
-                <T as pallet_nft::Config>::MultiCurrency::transfer(currency_id, &winner.bidder, &auction.owner, winner.bid_price.into())?;
+                <T as pallet_nft::Trait>::MultiCurrency::remove_lock(lock_id, currency_id, &winner.bidder);
+                <T as pallet_nft::Trait>::MultiCurrency::transfer(currency_id, &winner.bidder, &auction.owner, winner.bid_price.into())?;
 
                 for i in 0..(histories.len() - 1) {
                     let h = &histories[i];
-                    <T as pallet_nft::Config>::MultiCurrency::remove_lock(lock_id, currency_id, &h.bidder)?;
+                    <T as pallet_nft::Trait>::MultiCurrency::remove_lock(lock_id, currency_id, &h.bidder);
                 }
 
                 // Create order history
@@ -288,7 +289,7 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = <T as Config>::WeightInfo::cancel_auction()]
+        #[weight = <T as Trait>::WeightInfo::cancel_auction()]
         pub fn cancel_auction(origin, collection_id: u64, item_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let auction = Self::get_auction(collection_id, item_id);
@@ -316,7 +317,7 @@ decl_module! {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Trait> Module<T> {
     /// The account ID of the NFT.
 	///
 	/// This actually does computation. If you need to keep using it, then make sure you cache the

@@ -22,7 +22,7 @@ pub use frame_support::{
     dispatch::DispatchResult, debug,
     traits::{
         Currency, LockableCurrency, ReservableCurrency, ExistenceRequirement, Get, Imbalance, KeyOwnerProofSystem,
-        Randomness, WithdrawReasons
+        Randomness, WithdrawReason, WithdrawReasons
     },
 };
 use frame_system::{self as system, ensure_signed, ensure_root};
@@ -34,21 +34,21 @@ const MAX_VALIDATORS: u32 = 100_000;
 const DAY_IN_BLOCKS: u32 = 14_400;
 const DAY: u32 = 86_400_000;
 
-pub trait Config: system::Config + timestamp::Config {
+pub trait Trait: system::Trait + timestamp::Trait {
     /// The Currency for managing assets
     type Currency: MultiCurrencyExtended<Self::AccountId, CurrencyId = CurrencyId, Balance = Balance> + MultiLockableCurrency<Self::AccountId> ;
 
     /// Bridgecoin currency id
     type GetBridgeCurrencyId: Get<CurrencyId>;
 
-    type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
 
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as system::Config>::AccountId,
-        Hash = <T as system::Config>::Hash,
+        AccountId = <T as system::Trait>::AccountId,
+        Hash = <T as system::Trait>::Hash,
     {
         RelayMessage(Hash),
         ApprovedRelayMessage(Hash, AccountId, H160, TokenBalance),
@@ -62,7 +62,7 @@ decl_event!(
 
 // Errors inform users that something went wrong.
 decl_error! {
-	pub enum Error for Module<T: Config> {
+	pub enum Error for Module<T: Trait> {
 	    /// Cross chain amount check Min error
 	    CossAmountBelowMin,
         /// Cross chain amount check Max error
@@ -83,7 +83,7 @@ decl_error! {
 }
 
 decl_storage! {
-    trait Store for Module<T: Config> as Bridge {
+    trait Store for Module<T: Trait> as Bridge {
         pub BridgeIsOperational get(fn bridge_is_operational): bool = true;
         pub BridgeMessages get(fn bridge_messages): map hasher(identity) T::Hash => BridgeMessage<T::AccountId, T::Hash>;
 
@@ -131,7 +131,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -152,7 +152,7 @@ decl_module! {
             Self::check_pending_burn(amount)?;
             Self::check_daily_account_volume(from.clone(), amount)?;
 
-            let transfer_hash = (&from, &to, amount, <timestamp::Module<T>>::get()).using_encoded(<T as system::Config>::Hashing::hash);
+            let transfer_hash = (&from, &to, amount, <timestamp::Module<T>>::get()).using_encoded(<T as system::Trait>::Hashing::hash);
 
             let message = TransferMessage {
                 message_id: transfer_hash,
@@ -210,7 +210,7 @@ decl_module! {
                 min_tx_value,
             };
             Self::check_limits(&limits)?;
-            let id = (limits.clone(), T::BlockNumber::from(0)).using_encoded(<T as system::Config>::Hashing::hash);
+            let id = (limits.clone(), T::BlockNumber::from(0)).using_encoded(<T as system::Trait>::Hashing::hash);
 
             if !<LimitMessages<T>>::contains_key(id) {
                 let message = LimitMessage {
@@ -284,7 +284,7 @@ decl_module! {
             Self::check_validator(validator.clone())?;
 
             ensure!(Self::bridge_is_operational(), "Bridge is not operational already");
-            let hash = ("pause", T::BlockNumber::from(0)).using_encoded(<T as system::Config>::Hashing::hash);
+            let hash = ("pause", T::BlockNumber::from(0)).using_encoded(<T as system::Trait>::Hashing::hash);
 
             if !<BridgeMessages<T>>::contains_key(hash) {
                 let message = BridgeMessage {
@@ -307,7 +307,7 @@ decl_module! {
             let validator = ensure_signed(origin)?;
             Self::check_validator(validator.clone())?;
 
-            let hash = ("resume", T::BlockNumber::from(0)).using_encoded(<T as system::Config>::Hashing::hash);
+            let hash = ("resume", T::BlockNumber::from(0)).using_encoded(<T as system::Trait>::Hashing::hash);
 
             if !<BridgeMessages<T>>::contains_key(hash) {
                 let message = BridgeMessage {
@@ -370,7 +370,7 @@ decl_module! {
                 let blocked_yesterday = <DailyBlocked<T>>::get(&yesterday);
                 blocked_yesterday.iter().for_each(|a| <DailyLimits<T>>::remove(a));
                 blocked_yesterday.iter().for_each(|a|{
-                    let hash = (<timestamp::Module<T>>::get(), a.clone()).using_encoded(<T as system::Config>::Hashing::hash);
+                    let hash = (<timestamp::Module<T>>::get(), a.clone()).using_encoded(<T as system::Trait>::Hashing::hash);
                     Self::deposit_event(RawEvent::AccountResumedMessage(hash, a.clone()));
                 }
                 );
@@ -380,7 +380,7 @@ decl_module! {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Trait> Module<T> {
     fn _sign(validator: T::AccountId, transfer_id: ProposalId) -> DispatchResult {
         let mut transfer = <BridgeTransfers<T>>::get(transfer_id);
 
@@ -459,7 +459,7 @@ impl<T: Config> Module<T> {
             <DailyHolds<T>>::insert(to.clone(), (T::BlockNumber::from(0), message.message_id));
         }
         // Currency mint
-        let _ = <T as Config>::Currency::deposit(T::GetBridgeCurrencyId::get(), &to, Balance::saturated_from(message.amount));
+        let _ = <T as Trait>::Currency::deposit(T::GetBridgeCurrencyId::get(), &to, Balance::saturated_from(message.amount));
 
         Self::deposit_event(RawEvent::MintedMessage(message.message_id));
         Self::update_status(message.message_id, Status::Confirmed, Kind::Transfer)
@@ -482,7 +482,7 @@ impl<T: Config> Module<T> {
     }
     fn _cancel_transfer(message: TransferMessage<T::AccountId, T::Hash>) -> DispatchResult {
         let lock_id = Self::bridge_lock_id(message.message_id);
-        <T as Config>::Currency::remove_lock( lock_id,T::GetBridgeCurrencyId::get(), &message.substrate_address)?;
+        <T as Trait>::Currency::remove_lock( lock_id,T::GetBridgeCurrencyId::get(), &message.substrate_address);
         Self::update_status(message.message_id, Status::Canceled, Kind::Transfer)
     }
     fn pause_the_bridge(message: BridgeMessage<T::AccountId, T::Hash>) -> DispatchResult {
@@ -558,7 +558,7 @@ impl<T: Config> Module<T> {
     fn lock_for_burn(message_id: T::Hash, account: T::AccountId, amount: TokenBalance) -> DispatchResult {
         // lock currency
         let lock_id = Self::bridge_lock_id(message_id);
-        <T as Config>::Currency::extend_lock( lock_id,T::GetBridgeCurrencyId::get(), &account, Balance::saturated_from(amount))?;
+        <T as Trait>::Currency::extend_lock( lock_id,T::GetBridgeCurrencyId::get(), &account, Balance::saturated_from(amount));
 
         Ok(())
     }
@@ -570,11 +570,11 @@ impl<T: Config> Module<T> {
 
         // remove lock
         let lock_id = Self::bridge_lock_id(message_id);
-        <T as Config>::Currency::remove_lock( lock_id, T::GetBridgeCurrencyId::get(),&from)?;
+        <T as Trait>::Currency::remove_lock( lock_id, T::GetBridgeCurrencyId::get(),&from);
         // burn amount
         let burn_amount = Balance::saturated_from(message.amount);
 
-        <T as Config>::Currency::can_slash(T::GetBridgeCurrencyId::get(), &from, burn_amount);
+        <T as Trait>::Currency::can_slash(T::GetBridgeCurrencyId::get(), &from, burn_amount);
 
         <DailyLimits<T>>::mutate(from.clone(), |a| *a -= message.amount);
 
@@ -726,7 +726,7 @@ impl<T: Config> Module<T> {
                 if !v.contains(&account) {
                     v.push(account.clone());
                     let hash = (<timestamp::Module<T>>::get(), account.clone())
-                        .using_encoded(<T as system::Config>::Hashing::hash);
+                        .using_encoded(<T as system::Trait>::Hashing::hash);
                     Self::deposit_event(RawEvent::AccountPausedMessage(hash, account))
                 }
             });
@@ -796,7 +796,7 @@ impl<T: Config> Module<T> {
         let day_passed = first_tx.0 + daily_hold < T::BlockNumber::from(0);
 
         if !day_passed {
-            let account_balance = <T as Config>::Currency::free_balance(T::GetBridgeCurrencyId::get(), &from);
+            let account_balance = <T as Trait>::Currency::free_balance(T::GetBridgeCurrencyId::get(), &from);
 
             // 75% of potentially really big numbers
             let allowed_amount = account_balance

@@ -1,116 +1,75 @@
-# Assets Module
+# Substrate Pallet Template
 
-A simple, secure module for dealing with fungible assets.
+This is a template for a Substrate pallet which lives as its own crate so it can be imported into multiple runtimes. It is based on the ["template" pallet](https://github.com/paritytech/substrate/tree/master/bin/node-template/pallets/template) that is included with the [Substrate node template](https://github.com/paritytech/substrate/tree/master/bin/node-template).
 
-## Overview
+Check out the [HOWTO](HOWTO.md) to learn how to use this for your own runtime module.
 
-The Assets module provides functionality for asset management of fungible asset classes
-with a fixed supply, including:
+This README should act as a general template for distributing your pallet to others.
 
-* Asset Issuance
-* Asset Transfer
-* Asset Destruction
+## Purpose
 
-To use it in your runtime, you need to implement the assets [`assets::Trait`](https://docs.rs/pallet-assets/latest/pallet_assets/trait.Trait.html).
+This pallet acts as a template for building other pallets.
 
-The supported dispatchable functions are documented in the [`assets::Call`](https://docs.rs/pallet-assets/latest/pallet_assets/enum.Call.html) enum.
+It currently allows a user to put a `u32` value into storage, which triggers a runtime event.
 
-### Terminology
+## Dependencies
 
-* **Asset issuance:** The creation of a new asset, whose total supply will belong to the
-  account that issues the asset.
-* **Asset transfer:** The action of transferring assets from one account to another.
-* **Asset destruction:** The process of an account removing its entire holding of an asset.
-* **Fungible asset:** An asset whose units are interchangeable.
-* **Non-fungible asset:** An asset for which each unit has unique characteristics.
+### Traits
 
-### Goals
+This pallet does not depend on any externally defined traits.
 
-The assets system in Substrate is designed to make the following possible:
+### Pallets
 
-* Issue a unique asset to its creator's account.
-* Move assets between accounts.
-* Remove an account's balance of an asset when requested by that account's owner and update
-  the asset's total supply.
+This pallet does not depend on any other FRAME pallet or externally developed modules.
 
-## Interface
+## Installation
 
-### Dispatchable Functions
+### Runtime `Cargo.toml`
 
-* `issue` - Issues the total supply of a new fungible asset to the account of the caller of the function.
-* `transfer` - Transfers an `amount` of units of fungible asset `id` from the balance of
-the function caller's account (`origin`) to a `target` account.
-* `destroy` - Destroys the entire holding of a fungible asset `id` associated with the account
-that called the function.
+To add this pallet to your runtime, simply include the following to your runtime's `Cargo.toml` file:
 
-Please refer to the [`Call`](https://docs.rs/pallet-assets/latest/pallet_assets/enum.Call.html) enum and its associated variants for documentation on each function.
+```TOML
+[dependencies.substrate-pallet-template]
+default_features = false
+git = 'https://github.com/substrate-developer-hub/substrate-pallet-template.git'
+```
 
-### Public Functions
-<!-- Original author of descriptions: @gavofyork -->
+and update your runtime's `std` feature to include this pallet:
 
-* `balance` - Get the asset `id` balance of `who`.
-* `total_supply` - Get the total supply of an asset `id`.
+```TOML
+std = [
+    # --snip--
+    'example_pallet/std',
+]
+```
 
-Please refer to the [`Module`](https://docs.rs/pallet-assets/latest/pallet_assets/struct.Module.html) struct for details on publicly available functions.
+### Runtime `lib.rs`
 
-## Usage
-
-The following example shows how to use the Assets module in your runtime by exposing public functions to:
-
-* Issue a new fungible asset for a token distribution event (airdrop).
-* Query the fungible asset holding balance of an account.
-* Query the total supply of a fungible asset that has been issued.
-
-### Prerequisites
-
-Import the Assets module and types and derive your runtime's configuration traits from the Assets module trait.
-
-### Simple Code Snippet
+You should implement it's trait like so:
 
 ```rust
-use pallet_assets as assets;
-use frame_support::{decl_module, dispatch, ensure};
-use frame_system::ensure_signed;
-
-pub trait Config: assets::Config { }
-
-decl_module! {
-	pub struct Module<T: Config> for enum Call where origin: T::Origin {
-		pub fn issue_token_airdrop(origin) -> dispatch::DispatchResult {
-			let sender = ensure_signed(origin).map_err(|e| e.as_str())?;
-
-			const ACCOUNT_ALICE: u64 = 1;
-			const ACCOUNT_BOB: u64 = 2;
-			const COUNT_AIRDROP_RECIPIENTS: u64 = 2;
-			const TOKENS_FIXED_SUPPLY: u64 = 100;
-
-			ensure!(!COUNT_AIRDROP_RECIPIENTS.is_zero(), "Divide by zero error.");
-
-			let asset_id = Self::next_asset_id();
-
-			<NextAssetId<T>>::mutate(|asset_id| *asset_id += 1);
-			<Balances<T>>::insert((asset_id, &ACCOUNT_ALICE), TOKENS_FIXED_SUPPLY / COUNT_AIRDROP_RECIPIENTS);
-			<Balances<T>>::insert((asset_id, &ACCOUNT_BOB), TOKENS_FIXED_SUPPLY / COUNT_AIRDROP_RECIPIENTS);
-			<TotalSupply<T>>::insert(asset_id, TOKENS_FIXED_SUPPLY);
-
-			Self::deposit_event(RawEvent::Issued(asset_id, sender, TOKENS_FIXED_SUPPLY));
-			Ok(())
-		}
-	}
+/// Used for test_module
+impl example_pallet::Trait for Runtime {
+	type Event = Event;
 }
 ```
 
-## Assumptions
+and include it in your `construct_runtime!` macro:
 
-Below are assumptions that must be held when using this module.  If any of
-them are violated, the behavior of this module is undefined.
+```rust
+ExamplePallet: substrate_pallet_template::{Module, Call, Storage, Event<T>},
+```
 
-* The total count of assets should be less than
-  `Config::AssetId::max_value()`.
+### Genesis Configuration
 
-## Related Modules
+This template pallet does not have any genesis configuration.
 
-* [`System`](https://docs.rs/frame-system/latest/frame_system/)
-* [`Support`](https://docs.rs/frame-support/latest/frame_support/)
+## Reference Docs
 
-License: Apache-2.0
+You can view the reference docs for this pallet by running:
+
+```
+cargo doc --open
+```
+
+or by visiting this site: <Add Your Link>

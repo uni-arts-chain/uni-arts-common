@@ -15,7 +15,7 @@ pub struct BlindboxItemV1<AccountId, BlockNumber> {
     pub has_ended: bool,
 }
 
-pub fn migrate_v1_to_t2<T: Config>() -> Weight {
+pub fn migrate_v1_to_t2<T: Trait>() -> Weight {
     if PalletStorageVersion::get() == StorageVersion::V1_0_0 {
         PalletStorageVersion::put(StorageVersion::V2_0_0);
 
@@ -37,7 +37,7 @@ pub fn migrate_v1_to_t2<T: Config>() -> Weight {
             };
             Some(new_data)
         });
-		Weight::max_value()
+        T::MaximumBlockWeight::get()
     } else {
         0
     }

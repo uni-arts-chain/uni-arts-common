@@ -10,13 +10,14 @@ pub use frame_support::{
     ensure, parameter_types, Parameter,
     traits::{
         Currency, LockableCurrency, ExistenceRequirement, Get, Imbalance, KeyOwnerProofSystem, OnUnbalanced,
-        Randomness, WithdrawReasons
+        Randomness, WithdrawReason, WithdrawReasons
     },
     weights::{
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
         DispatchInfo, GetDispatchInfo, IdentityFee, Pays, PostDispatchInfo, Weight,
         WeightToFeePolynomial,
-    }, StorageValue, debug,
+    },
+    IsSubType, StorageValue, debug,
 };
 use pallet_timestamp as timestamp;
 mod types;
@@ -59,14 +60,14 @@ const ERROR_CATEGORY_NOT_BEING_UPDATED: &str = "Category not being updated.";
 const ERROR_CATEGORY_CANNOT_BE_UNARCHIVED_WHEN_DELETED: &str =
     "Category cannot be unarchived when deleted.";
 
-pub trait Config: system::Config + timestamp::Config + Sized {
-    type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
+pub trait Trait: system::Trait + timestamp::Trait + Sized {
+    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 
     type MembershipRegistry: ForumUserRegistry<Self::AccountId>;
 }
 
 decl_storage! {
-    trait Store for Module<T: Config> as Forum {
+    trait Store for Module<T: Trait> as Forum {
 
         /// Map category identifier to corresponding category.
         pub CategoryById get(fn category_by_id): map hasher(identity) CategoryId => Category<T::BlockNumber, T::Moment, T::AccountId>;
@@ -104,7 +105,7 @@ decl_storage! {
 decl_event!(
     pub enum Event<T>
     where
-        <T as system::Config>::AccountId,
+        <T as system::Trait>::AccountId,
     {
         /// A category was introduced
         CategoryCreated(CategoryId),
@@ -136,7 +137,7 @@ decl_event!(
 );
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 
         fn deposit_event() = default;
 
@@ -497,7 +498,7 @@ decl_module! {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Trait> Module<T> {
     fn ensure_category_title_is_valid(title: &Vec<u8>) -> DispatchResult {
         CategoryTitleConstraint::get().ensure_valid(
             title.len(),

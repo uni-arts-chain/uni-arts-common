@@ -10,7 +10,7 @@ use sp_runtime::traits::{AccountIdConversion, MaybeSerialize, Member};
 use sp_runtime::ModuleId;
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::prelude::*;
-use frame_system::{self as system};
+use frame_system::{self as system, ensure_signed};
 
 mod errors;
 pub use errors::*;
@@ -19,12 +19,12 @@ mod mock;
 mod tests;
 
 pub type BalanceOf<T> =
-<<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
+<<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 
 pub type NegativeImbalance<T> =
-<<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::NegativeImbalance;
+<<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
 
-pub trait Config: system::Config + Sized {
+pub trait Trait: system::Trait + Sized {
     /// The currency that is managed by the module
     type Currency: Currency<Self::AccountId>;
 
@@ -56,7 +56,7 @@ pub trait Config: system::Config + Sized {
     + Ord; //required to be a key in BTreeMap
 }
 
-pub trait StakingEventsHandler<T: Config> {
+pub trait StakingEventsHandler<T: Trait> {
     /// Handler for unstaking event.
     /// The handler is informed of the amount that was unstaked, and the value removed from stake is passed as a negative imbalance.
     /// The handler is responsible to consume part or all of the value (for example by moving it into an account). The remainder
@@ -83,7 +83,7 @@ pub trait StakingEventsHandler<T: Config> {
 }
 
 /// Default implementation just destroys the unstaked or slashed value
-impl<T: Config> StakingEventsHandler<T> for () {
+impl<T: Trait> StakingEventsHandler<T> for () {
     fn unstaked(
         _id: &T::StakeId,
         _unstaked_amount: BalanceOf<T>,
@@ -108,7 +108,7 @@ impl<T: Config> StakingEventsHandler<T> for () {
 /// type StakingEventHandler = ((A, B), C)
 /// Individual handlers are expected consume in full or in part the negative imbalance and return any unconsumed value.
 /// The unconsumed value is then passed to the next handler in the chain.
-impl<T: Config, X: StakingEventsHandler<T>, Y: StakingEventsHandler<T>> StakingEventsHandler<T>
+impl<T: Trait, X: StakingEventsHandler<T>, Y: StakingEventsHandler<T>> StakingEventsHandler<T>
 for (X, Y)
 {
     fn unstaked(
@@ -708,7 +708,7 @@ pub struct SlashImmediateOutcome<Balance, NegativeImbalance> {
 }
 
 decl_storage! {
-    trait Store for Module<T: Config> as StakePool {
+    trait Store for Module<T: Trait> as StakePool {
         /// Maps identifiers to a stake.
         pub Stakes get(fn stakes): map hasher(blake2_128_concat)
             T::StakeId => Stake<T::BlockNumber, BalanceOf<T>, T::SlashId>;
@@ -720,14 +720,14 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         fn on_finalize(_now: T::BlockNumber) {
             Self::finalize_slashing_and_unstaking();
         }
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Trait> Module<T> {
     /// The account ID of theis module which holds all the staked balance. (referred to as the stake pool)
     ///
     /// This actually does computation. If you need to keep using it, then make sure you cache the

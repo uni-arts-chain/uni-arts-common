@@ -1,7 +1,26 @@
+/*
+    names - a pallet for Substrate blockchains implementing naming
+    Copyright (C) 2020  Autonomous Worlds Ltd
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 //! A pallet that defines a system to register and update names
-//! in a Substrate chain.
+//! in a Substrate chain.  This provides (roughly) the functionality
+//! of the [Namecoin](https://www.namecoin.org/) blockchain.
 //!
 //! The core concept is that of a *name*.  This is some identifier (the exact
 //! type can be configured through the module's [`Trait`](Trait)),
@@ -34,7 +53,7 @@ use frame_support::{
     decl_module, decl_storage, decl_event, ensure,
     weights::{Weight},
     dispatch::DispatchResult, dispatch::fmt::Debug,
-    traits::{Currency, ExistenceRequirement, WithdrawReasons},
+    traits::{Currency, ExistenceRequirement, WithdrawReason, WithdrawReasons},
 };
 use codec::{Decode, Encode, FullCodec};
 use frame_system::ensure_signed;
@@ -43,7 +62,7 @@ use sp_runtime::traits::CheckedSub;
 use core::cmp::max;
 
 /// The pallet's configuration trait.
-pub trait Config: frame_system::Config {
+pub trait Trait: frame_system::Trait {
 
     /// Type for names.
     type Name: Clone + Debug + Default + Eq + FullCodec;
@@ -54,7 +73,7 @@ pub trait Config: frame_system::Config {
     type Currency: Currency<Self::AccountId>;
 
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 
     /// Computes and returns the currency fee the sender has to pay for
     /// a certain operation.  If `None` is returned, it means that the
@@ -77,7 +96,7 @@ pub trait Config: frame_system::Config {
 /// All data stored with a name in the database.
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(Clone, Decode, Encode, Eq, PartialEq)]
-pub struct NameData<T: Config> {
+pub struct NameData<T: Trait> {
     /// The name's associated value.
     pub value: T::Value,
     /// The name's current owner.
@@ -107,7 +126,7 @@ pub enum OperationType {
 /// functions that need to determine e.g. the name fee for the operation.
 #[cfg_attr(feature = "std", derive(Debug))]
 #[derive(Eq, PartialEq)]
-pub struct Operation<T: Config> {
+pub struct Operation<T: Trait> {
     /// Type of this operation.
     pub operation: OperationType,
     /// The name being operated on.
@@ -125,7 +144,7 @@ pub struct Operation<T: Config> {
 }
 
 decl_storage! {
-    trait Store for Module<T: Config> as Names {
+    trait Store for Module<T: Trait> as Names {
         /// The main mapping from names to [associated data](NameData).
         Names get(fn lookup): map hasher(blake2_128_concat) T::Name => Option<NameData<T>>;
         /// All names (as both the second key and the value) that may expire at
@@ -139,7 +158,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         fn deposit_event() = default;
 
         #[weight = 0]
@@ -175,11 +194,12 @@ decl_module! {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Trait> Module<T> {
 
     /// Returns a withdraw reasons value for the fee payment.
     fn withdraw_reasons() -> WithdrawReasons {
-        let res = WithdrawReasons::from(WithdrawReasons::FEE);
+        let mut res = WithdrawReasons::none();
+        res.set(WithdrawReason::Fee);
         res
     }
 
@@ -327,7 +347,7 @@ impl<T: Config> Module<T> {
 }
 
 decl_event!(
-    pub enum Event<T> where Name = <T as Config>::Name, NameData = NameData<T> {
+    pub enum Event<T> where Name = <T as Trait>::Name, NameData = NameData<T> {
         /// Event when a name is newly created.
         NameRegistered(Name),
         /// Event when a name is updated (or created).

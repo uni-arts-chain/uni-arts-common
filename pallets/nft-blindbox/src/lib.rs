@@ -7,13 +7,14 @@ pub use frame_support::{
     ensure, parameter_types, Parameter,
     traits::{
         Currency, LockableCurrency, ExistenceRequirement, Get, Imbalance, KeyOwnerProofSystem, OnUnbalanced,
-        Randomness, WithdrawReasons
+        Randomness, WithdrawReason, WithdrawReasons
     },
     weights::{
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
         DispatchInfo, GetDispatchInfo, IdentityFee, Pays, PostDispatchInfo, Weight,
         WeightToFeePolynomial,
-    }, StorageValue, debug,
+    },
+    IsSubType, StorageValue, debug,
 };
 
 use frame_system::{self as system, ensure_signed};
@@ -81,14 +82,14 @@ pub struct BlindboxItem<AccountId, BlockNumber> {
     pub has_ended: bool,
 }
 
-pub trait Config: system::Config + pallet_nft::Config {
+pub trait Trait: system::Trait + pallet_nft::Trait {
     /// The NFT's module id, used for deriving its sovereign account ID.
     type LockModuleId: Get<ModuleId>;
 
     /// Nft manager.
     type NftHandler: NftManager<Self::AccountId, Self::BlockNumber>;
 
-    type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 
     /// Something that provides randomness in the runtime.
     type Randomness: Randomness<Self::Hash>;
@@ -99,7 +100,7 @@ pub trait Config: system::Config + pallet_nft::Config {
 }
 
 decl_storage! {
-    trait Store for Module<T: Config> as NftBlindBox {
+    trait Store for Module<T: Trait> as NftBlindBox {
         /// Next CardGroup id
         pub NextCardGroupID: u64 = 1;
 
@@ -124,7 +125,7 @@ decl_storage! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Config>::AccountId,
+        AccountId = <T as frame_system::Trait>::AccountId,
         CurrencyId = CurrencyId,
     {
         BlindBoxCreated(u64, u64, AccountId, CurrencyId),
@@ -138,7 +139,7 @@ decl_event!(
 );
 
 decl_error! {
-    pub enum Error for Module<T: Config> {
+    pub enum Error for Module<T: Trait> {
         BlindBoxNotExists,
         BlindBoxNotInSalesPeriod,
         BlindBoxIsEnded,
@@ -149,7 +150,7 @@ decl_error! {
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         // Errors must be initialized if they are used by the pallet.
 		type Error = Error<T>;
 
@@ -162,7 +163,7 @@ decl_module! {
 			migration::migrate_v1_to_t2::<T>()
 		}
 
-        #[weight = <T as Config>::WeightInfo::create_blind_box()]
+        #[weight = <T as Trait>::WeightInfo::create_blind_box()]
         pub fn create_blind_box(origin, start_time: T::BlockNumber, end_time: T::BlockNumber, currency_id: CurrencyId, price: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
@@ -188,7 +189,7 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = <T as Config>::WeightInfo::blind_box_add_card_group()]
+        #[weight = <T as Trait>::WeightInfo::blind_box_add_card_group()]
         pub fn blind_box_add_card_group(origin, blind_box_id: u64, collection_id: u64, item_id: u64, value: u64 ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
@@ -251,7 +252,7 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = <T as Config>::WeightInfo::blind_box_remove_card_group()]
+        #[weight = <T as Trait>::WeightInfo::blind_box_remove_card_group()]
         pub fn blind_box_remove_card_group(origin, blind_box_id: u64, card_group_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
@@ -296,7 +297,7 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = <T as Config>::WeightInfo::buy_blind_box()]
+        #[weight = <T as Trait>::WeightInfo::buy_blind_box()]
         pub fn buy_blind_box(origin, blind_box_id: u64, receive: Option<T::AccountId>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
@@ -368,7 +369,7 @@ decl_module! {
             let locker = Self::nft_account_id();
 
             if blind_box.price > 0 {
-                <T as pallet_nft::Config>::MultiCurrency::transfer(currency_id, &sender, &blind_box.owner, blind_box.price.into())?;
+                <T as pallet_nft::Trait>::MultiCurrency::transfer(currency_id, &sender, &blind_box.owner, blind_box.price.into())?;
             }
 
             let target_collection = pallet_nft::Module::<T>::collection(card_group.collection_id);
@@ -393,7 +394,7 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = <T as Config>::WeightInfo::close_blind_box()]
+        #[weight = <T as Trait>::WeightInfo::close_blind_box()]
         pub fn close_blind_box(origin, blind_box_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
@@ -413,7 +414,7 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = <T as Config>::WeightInfo::open_blind_box()]
+        #[weight = <T as Trait>::WeightInfo::open_blind_box()]
         pub fn open_blind_box(origin, blind_box_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
@@ -433,7 +434,7 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = <T as Config>::WeightInfo::cancel_blind_box()]
+        #[weight = <T as Trait>::WeightInfo::cancel_blind_box()]
         pub fn cancel_blind_box(origin, blind_box_id: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
@@ -469,7 +470,7 @@ decl_module! {
     }
 }
 
-impl<T: Config> Module<T> {
+impl<T: Trait> Module<T> {
     /// The account ID of the NFT.
 	///
 	/// This actually does computation. If you need to keep using it, then make sure you cache the
