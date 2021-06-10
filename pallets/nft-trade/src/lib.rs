@@ -198,7 +198,7 @@ decl_module! {
             if !order_owner
             {
                 let mes = "Account is not sale order owner";
-                panic!(mes);
+                panic!("{}", mes);
             }
 
             let target_collection = pallet_nft::Module::<T>::collection(collection_id);
@@ -347,7 +347,7 @@ decl_module! {
             if !order_owner
             {
                 let mes = "Account is not sale order owner";
-                panic!(mes);
+                panic!("{}", mes);
             }
 
             let target_collection = pallet_nft::Module::<T>::collection(target_sale_order.collection_id);

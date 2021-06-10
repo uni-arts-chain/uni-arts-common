@@ -111,7 +111,7 @@ decl_module! {
 			);
 			let now = frame_system::Module::<T>::block_number();
 			let (immature_rewards, n) = Self::immature_rewards(&who);
-			if now > n + <T as frame_system::Config>::BlockNumber::from(14400 * 14) {
+			if now > n + <T as frame_system::Config>::BlockNumber::from((14400 * 14) as u32) {
 				rewards = rewards.saturating_add(immature_rewards);
 			}
 
@@ -146,8 +146,8 @@ decl_module! {
 					let year = now / T::BlocksPerYear::get() + One::one();
 
 					if pre_year + One::one() == year {
-						let numerator = BalanceOf::<T>::from(8);
-						let denominator = BalanceOf::<T>::from(10);
+						let numerator = BalanceOf::<T>::from(8u32);
+						let denominator = BalanceOf::<T>::from(10u32);
 						<CurrentRewardsPerBlock<T>>::mutate(|current| *current = current.saturating_mul(numerator) / denominator);
 					}
 
