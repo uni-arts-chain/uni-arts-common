@@ -210,7 +210,7 @@ decl_module! {
                 min_tx_value,
             };
             Self::check_limits(&limits)?;
-            let id = (limits.clone(), T::BlockNumber::from(0)).using_encoded(<T as system::Config>::Hashing::hash);
+            let id = (limits.clone(), T::BlockNumber::from(0u32)).using_encoded(<T as system::Config>::Hashing::hash);
 
             if !<LimitMessages<T>>::contains_key(id) {
                 let message = LimitMessage {
@@ -284,7 +284,7 @@ decl_module! {
             Self::check_validator(validator.clone())?;
 
             ensure!(Self::bridge_is_operational(), "Bridge is not operational already");
-            let hash = ("pause", T::BlockNumber::from(0)).using_encoded(<T as system::Config>::Hashing::hash);
+            let hash = ("pause", T::BlockNumber::from(0u32)).using_encoded(<T as system::Config>::Hashing::hash);
 
             if !<BridgeMessages<T>>::contains_key(hash) {
                 let message = BridgeMessage {
@@ -307,7 +307,7 @@ decl_module! {
             let validator = ensure_signed(origin)?;
             Self::check_validator(validator.clone())?;
 
-            let hash = ("resume", T::BlockNumber::from(0)).using_encoded(<T as system::Config>::Hashing::hash);
+            let hash = ("resume", T::BlockNumber::from(0u32)).using_encoded(<T as system::Config>::Hashing::hash);
 
             if !<BridgeMessages<T>>::contains_key(hash) {
                 let message = BridgeMessage {
@@ -456,7 +456,7 @@ impl<T: Config> Module<T> {
         Self::sub_pending_mint(message.clone())?;
         let to = message.substrate_address;
         if !<DailyHolds<T>>::contains_key(&to) {
-            <DailyHolds<T>>::insert(to.clone(), (T::BlockNumber::from(0), message.message_id));
+            <DailyHolds<T>>::insert(to.clone(), (T::BlockNumber::from(0u32), message.message_id));
         }
         // Currency mint
         let _ = <T as Config>::Currency::deposit(T::GetBridgeCurrencyId::get(), &to, Balance::saturated_from(message.amount));
@@ -793,7 +793,7 @@ impl<T: Config> Module<T> {
         let from = message.substrate_address;
         let first_tx = <DailyHolds<T>>::get(from.clone());
         let daily_hold = T::BlockNumber::from(DAY_IN_BLOCKS);
-        let day_passed = first_tx.0 + daily_hold < T::BlockNumber::from(0);
+        let day_passed = first_tx.0 + daily_hold < T::BlockNumber::from(0u32);
 
         if !day_passed {
             let account_balance = <T as Config>::Currency::free_balance(T::GetBridgeCurrencyId::get(), &from);

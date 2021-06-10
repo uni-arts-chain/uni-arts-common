@@ -272,7 +272,7 @@ impl<T: Config> Module<T> {
                    actually expire the name in the next block, and not end up
                    with an index entry from the past that will stick around
                    forever.  */
-                let b = max(b, T::BlockNumber::from(1));
+                let b = max(b, T::BlockNumber::from(1u32));
                 Some(frame_system::Module::<T>::block_number() + b)
             },
         };
