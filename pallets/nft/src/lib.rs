@@ -404,7 +404,7 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        fn on_initialize(now: T::BlockNumber) -> Weight {
+        fn on_initialize(_now: T::BlockNumber) -> Weight {
 
             if ChainVersion::get() < 2
             {
@@ -985,7 +985,7 @@ decl_module! {
             if !order_owner
             {
                 let mes = "Account is not sale order owner";
-                panic!(mes);
+                panic!("{}", mes);
             }
 
             let target_collection = <Collection<T>>::get(collection_id);
@@ -1020,7 +1020,7 @@ decl_module! {
 
             let target_collection = <Collection<T>>::get(collection_id);
             let locker = Self::nft_account_id();
-            let balance_price = CurrencyBalanceOf::<T>::saturated_from(price.into());
+            let balance_price = CurrencyBalanceOf::<T>::saturated_from(price.saturated_into::<u128>());
             let currency_id = CurrencyId::default();
 
             Self::charge_royalty(sender.clone(), collection_id, item_id, currency_id, price, buy_time)?;
@@ -1144,7 +1144,7 @@ decl_module! {
             if !order_owner
             {
                 let mes = "Account is not sale order owner";
-                panic!(mes);
+                panic!("{}", mes);
             }
 
             let target_collection = <Collection<T>>::get(target_sale_order.collection_id);
@@ -1195,8 +1195,8 @@ decl_module! {
             ensure!(target_sale_order.balance >= value, "Value not enough");
             let remain_value = balance.checked_sub(value).unwrap();
 
-            let accept_price = CurrencyBalanceOf::<T>::saturated_from(price.into());
-            let accept_value = CurrencyBalanceOf::<T>::saturated_from(value.into());
+            let accept_price = CurrencyBalanceOf::<T>::saturated_from(price.saturated_into::<u128>());
+            let accept_value = CurrencyBalanceOf::<T>::saturated_from(value.saturated_into::<u128>());
             let balance_price = accept_price.saturating_mul(accept_value);
             let checked_value = price.checked_mul(value).unwrap();
             let currency_id = CurrencyId::default();
@@ -1371,7 +1371,7 @@ decl_module! {
             ensure!(now >= auction.start_time, "Not start");
             ensure!(now <= auction.end_time, "Ended");
             let price = auction.current_price.saturating_add(auction.increment);
-            let balance_price = CurrencyBalanceOf::<T>::saturated_from(price.into());
+            let balance_price = CurrencyBalanceOf::<T>::saturated_from(price.saturated_into::<u128>());
             let free_balance = <T as Config>::Currency::free_balance(&sender);
             ensure!(free_balance > balance_price, "Insufficient balance");
 
@@ -1425,7 +1425,7 @@ decl_module! {
 
                 let lock_id = Self::auction_lock_id(auction.id);
                 <T as Config>::Currency::remove_lock(lock_id, &winner.bidder);
-                let balance = CurrencyBalanceOf::<T>::saturated_from(winner.bid_price.into());
+                let balance = CurrencyBalanceOf::<T>::saturated_from(winner.bid_price.saturated_into::<u128>());
                 let negative_imbalance = <T as Config>::Currency::withdraw(
                     &winner.bidder,
                     balance,
@@ -1706,11 +1706,11 @@ impl<T: Config> Module<T> {
         if <WhiteList<T>>::contains_key(collection_id){
             let wl = <WhiteList<T>>::get(collection_id);
             if !wl.contains(&address.clone()) {
-                panic!(mes);
+				panic!("{}", mes);
             }
         }
         else {
-            panic!(mes);
+			panic!("{}", mes);
         }
         Ok(())
     }
@@ -2032,9 +2032,9 @@ impl<T: Config> NftManager<T::AccountId, T::BlockNumber> for Module<T> {
     fn charge_royalty(buyer: T::AccountId, collection_id: u64, item_id: u64, _currency_id: CurrencyId, order_price: u64, now: T::BlockNumber) -> DispatchResult {
         let royalty = <ItemRoyalty<T>>::get(collection_id, item_id);
         if royalty.expired_at >= now && royalty.rate >= Zero::zero() {
-            let fee_rate = CurrencyBalanceOf::<T>::saturated_from(royalty.rate.into());
-            let fee_max = CurrencyBalanceOf::<T>::saturated_from(10000u64.into());
-            let royalty_fee = CurrencyBalanceOf::<T>::saturated_from(order_price.into()).saturating_mul(fee_rate) / fee_max;
+            let fee_rate = CurrencyBalanceOf::<T>::saturated_from(royalty.rate.saturated_into::<u128>());
+            let fee_max = CurrencyBalanceOf::<T>::saturated_from(10000u64.saturated_into::<u64>());
+            let royalty_fee = CurrencyBalanceOf::<T>::saturated_from(order_price.saturated_into::<u128>()).saturating_mul(fee_rate) / fee_max;
 
             let imbalance = <T as Config>::Currency::withdraw(
                 &buyer,

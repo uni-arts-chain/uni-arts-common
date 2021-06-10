@@ -438,7 +438,7 @@ impl<T: Config> Module<T> {
         let yesterday = if now < day {
             T::Moment::zero()
         } else {
-            <timestamp::Module<T>>::get().checked_div(&day).expect("time div error").checked_sub(&T::Moment::from(1)).expect("time sub error")
+            <timestamp::Module<T>>::get().checked_div(&day).expect("time div error").checked_sub(&T::Moment::from(1u32)).expect("time sub error")
         };
         (yesterday, today)
     }

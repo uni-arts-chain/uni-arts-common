@@ -199,7 +199,7 @@ decl_module! {
             if !blind_box_owner
             {
                 let mes = "Account is not blind box owner";
-                panic!(mes);
+                panic!("{}", mes);
             }
 
             let target_collection = pallet_nft::Module::<T>::collection(collection_id);
@@ -266,7 +266,7 @@ decl_module! {
             if !blind_box_owner
             {
                 let mes = "Account is not blind box owner";
-                panic!(mes);
+                panic!("{}", mes);
             }
 
             let target_collection = pallet_nft::Module::<T>::collection(collection_id);
@@ -401,7 +401,7 @@ decl_module! {
             if !blind_box_owner
             {
                 let mes = "Account is not blind box owner";
-                panic!(mes);
+                panic!("{}", mes);
             }
 
             <BlindBoxList<T>>::mutate(blind_box_id, |blind_box| {
@@ -421,7 +421,7 @@ decl_module! {
             if !blind_box_owner
             {
                 let mes = "Account is not blind box owner";
-                panic!(mes);
+                panic!("{}", mes);
             }
 
             <BlindBoxList<T>>::mutate(blind_box_id, |blind_box| {
@@ -441,7 +441,7 @@ decl_module! {
             if !blind_box_owner
             {
                 let mes = "Account is not blind box owner";
-                panic!(mes);
+                panic!("{}", mes);
             }
             let blind_box = Self::get_blind_box(blind_box_id);
             ensure!(blind_box.has_ended == true, Error::<T>::BlindBoxIsNotEnded);

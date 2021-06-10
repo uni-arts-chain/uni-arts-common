@@ -434,7 +434,7 @@ decl_module! {
             migration::migrate_v1_to_t2::<T>()
 		}
 
-        fn on_initialize(now: T::BlockNumber) -> Weight {
+        fn on_initialize(_now: T::BlockNumber) -> Weight {
 
             if ChainVersion::get() < 2
             {
@@ -1016,7 +1016,7 @@ decl_module! {
             if !order_owner
             {
                 let mes = "Account is not sale order owner";
-                panic!(mes);
+                panic!("{}", mes);
             }
 
             let target_collection = <Collection<T>>::get(collection_id);
@@ -1167,7 +1167,7 @@ decl_module! {
             if !order_owner
             {
                 let mes = "Account is not sale order owner";
-                panic!(mes);
+                panic!("{}", mes);
             }
 
             let target_collection = <Collection<T>>::get(target_sale_order.collection_id);
@@ -1713,11 +1713,11 @@ impl<T: Config> Module<T> {
         if <WhiteList<T>>::contains_key(collection_id){
             let wl = <WhiteList<T>>::get(collection_id);
             if !wl.contains(&address.clone()) {
-                panic!(mes);
+				panic!("{}", mes);
             }
         }
         else {
-            panic!(mes);
+			panic!("{}", mes);
         }
         Ok(())
     }
