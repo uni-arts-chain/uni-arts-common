@@ -32,7 +32,7 @@ pub use sp_runtime::{Permill, Perbill};
 use frame_system::EnsureRoot;
 pub use frame_support::{
 	construct_runtime, parameter_types, StorageValue,
-	traits::{KeyOwnerProofSystem, Randomness},
+	traits::{KeyOwnerProofSystem, Randomness, Currency},
 	weights::{
 		Weight, IdentityFee,
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
@@ -71,6 +71,9 @@ pub type Hash = sp_core::H256;
 
 /// Digest item type.
 pub type DigestItem = generic::DigestItem<Hash>;
+
+// Uni-Arts
+type Uart = Balances;
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats
@@ -268,6 +271,41 @@ impl pallet_template::Config for Runtime {
 	type Event = Event;
 }
 
+/// Configure Names
+impl pallet_names::Config for Runtime {
+	type Name = Vec<u8>;
+	type Value = Vec<u8>;
+	type Currency = Uart;
+	type Event = Event;
+
+	fn get_name_fee(op: &pallet_names::Operation<Self>) -> Option<Balance> {
+		/* Single-letter names are not allowed (nor the empty name).  Everything
+		   else is fine.  */
+		if op.name.len() < 2 {
+			return None
+		}
+
+		Some(match op.operation {
+			pallet_names::OperationType::Registration => 1000,
+			pallet_names::OperationType::Update => 100,
+		})
+	}
+
+	fn get_expiration(op: &pallet_names::Operation<Self>) -> Option<BlockNumber> {
+		/* Short names (up to three characters) will expire after 10 blocks.
+		   Longer names will stick around forever.  */
+		if op.name.len() <= 3 {
+			Some(10)
+		} else {
+			None
+		}
+	}
+
+	fn deposit_fee(_b: <Self::Currency as Currency<AccountId>>::NegativeImbalance) {
+		/* Just burn the name fee by dropping the imbalance.  */
+	}
+}
+
 parameter_types! {
 	pub const AssetDepositBase: Balance = 100 * DOLLARS;
 	pub const AssetDepositPerZombie: Balance = 1 * DOLLARS;
@@ -309,6 +347,7 @@ construct_runtime!(
 		// Include the custom logic from the template pallet in the runtime.
 		TemplateModule: pallet_template::{Module, Call, Storage, Event<T>},
 		Assets: pallet_assets::{Module, Call, Storage, Event<T>},
+		Names: pallet_names::{Module, Call, Storage, Event<T>},
 	}
 );
 
