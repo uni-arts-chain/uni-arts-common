@@ -9,7 +9,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 use sp_std::prelude::*;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
-	ApplyExtrinsicResult, generic, create_runtime_str, impl_opaque_keys, MultiSignature,
+	ApplyExtrinsicResult, generic, create_runtime_str, impl_opaque_keys, MultiSignature, ModuleId,
 	transaction_validity::{TransactionValidity, TransactionSource},
 };
 use sp_runtime::traits::{
@@ -32,7 +32,7 @@ pub use sp_runtime::{Permill, Perbill};
 use frame_system::EnsureRoot;
 pub use frame_support::{
 	construct_runtime, parameter_types, StorageValue,
-	traits::{KeyOwnerProofSystem, Randomness, Currency},
+	traits::{KeyOwnerProofSystem, Randomness, Currency, LockIdentifier},
 	weights::{
 		Weight, IdentityFee,
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
@@ -145,6 +145,16 @@ parameter_types! {
 	pub BlockLength: frame_system::limits::BlockLength = frame_system::limits::BlockLength
 		::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
 	pub const SS58Prefix: u8 = 42;
+}
+
+parameter_types! {
+	pub const UniArtsTreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
+	pub const StakingModuleId: ModuleId = ModuleId(*b"staking_");
+	pub const UniArtsNftModuleId: ModuleId = ModuleId(*b"art/nftb");
+	pub const LotteryModuleId: ModuleId = ModuleId(*b"art/lotb");
+	pub const SocietyModuleId: ModuleId = ModuleId(*b"art/soci");
+	pub const ElectionsPhragmenModuleId: LockIdentifier = *b"art/phre";
+	pub ZeroAccountId: AccountId = AccountId::from([0u8; 32]);
 }
 
 // Configure FRAME pallets to include in runtime.
@@ -329,6 +339,14 @@ impl pallet_assets::Config for Runtime {
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 }
 
+/// Used for the module nft in `./nft.rs`
+impl pallet_nft::Config for Runtime {
+	type ModuleId = UniArtsNftModuleId;
+	type Currency = Uart;
+	type Event = Event;
+	type WeightInfo = ();
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -348,6 +366,7 @@ construct_runtime!(
 		TemplateModule: pallet_template::{Module, Call, Storage, Event<T>},
 		Assets: pallet_assets::{Module, Call, Storage, Event<T>},
 		Names: pallet_names::{Module, Call, Storage, Event<T>},
+		Nft: pallet_nft::{Module, Call, Storage, Event<T>},
 	}
 );
 

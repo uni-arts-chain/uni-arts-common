@@ -3662,6 +3662,7 @@ dependencies = [
  "pallet-bridge",
  "pallet-grandpa",
  "pallet-names",
+ "pallet-nft",
  "pallet-nft-blindbox",
  "pallet-nft-multi",
  "pallet-randomness-collective-flip",

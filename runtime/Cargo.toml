@@ -45,6 +45,7 @@ pallet-transaction-payment-rpc-runtime-api = { default-features = false, version
 # uniarts
 pallet-assets = { version = "3.0.0", default-features = false, path = "../pallets/assets" }
 pallet-names = { version = "3.0.0", default-features = false, path = "../pallets/names" }
+pallet-nft = { version = "3.0.0", default-features = false, path = "../pallets/nft" }
 pallet-nft-multi = { version = "3.0.0", default-features = false, path = "../pallets/nft-multi" }
 pallet-nft-blindbox = { version = "3.0.0", default-features = false, path = "../pallets/nft-blindbox" }
 pallet-rewards = { version = "3.0.0", default-features = false, path = "../pallets/rewards" }
@@ -96,6 +97,7 @@ std = [
     'primitives/std',
     'pallet-assets/std',
     'pallet-names/std',
+    'pallet-nft/std',
     'sp-api/std',
     'sp-block-builder/std',
     'sp-consensus-aura/std',
