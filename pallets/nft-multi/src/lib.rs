@@ -58,6 +58,7 @@ pub trait WeightInfo {
     fn create_item() -> Weight;
     fn burn_item() -> Weight;
     fn transfer() -> Weight;
+	fn transfer_and_lock() -> Weight;
     fn approve() -> Weight;
     fn transfer_from() -> Weight;
     fn safe_transfer_from() -> Weight;
@@ -400,6 +401,7 @@ decl_event!(
         ItemCreated(u64, u64),
         ItemDestroyed(  u64, u64),
         ItemTransfer(u64, u64, u64, AccountId, AccountId),
+		ItemLock(u64, u64, u64, AccountId),
         ItemOrderCreated(u64, u64, u64, u64, AccountId, u64, CurrencyId),
         ItemOrderCancel(u64, u64, u64),
         ItemOrderSucceed(u64, u64, AccountId, AccountId, u64, u64, u64, CurrencyId),
@@ -855,6 +857,43 @@ decl_module! {
 
             // call event
             Self::deposit_event(RawEvent::ItemTransfer(collection_id, item_id, value, sender, recipient));
+
+            Ok(())
+        }
+
+		#[weight = T::WeightInfo::transfer_and_lock()]
+        pub fn transfer_and_lock(origin, recipient: T::AccountId, collection_id: u64, item_id: u64, value: u64) -> DispatchResult {
+
+            let sender = ensure_signed(origin)?;
+
+            let item_owner = Self::is_item_owner(sender.clone(), collection_id, item_id);
+            if !item_owner {
+                Self::check_white_list(collection_id, sender.clone())?;
+                Self::check_white_list(collection_id, recipient.clone())?;
+            }
+
+            let target_collection = <Collection<T>>::get(collection_id);
+
+            match target_collection.mode
+            {
+                CollectionMode::NFT(_) => {
+					Self::transfer_nft(collection_id, item_id, sender.clone(), recipient.clone())?;
+					Self::lock_nft(collection_id, item_id, sender.clone())?
+				},
+                CollectionMode::Fungible(_)  => {
+					Self::transfer_fungible(collection_id, item_id, value, sender.clone(), recipient.clone())?;
+					Self::lock_fungible(collection_id, item_id, value, sender.clone())?
+				},
+                CollectionMode::ReFungible(_, _)  => {
+					Self::transfer_refungible(collection_id, item_id, value, sender.clone(), recipient.clone())?;
+					Self::lock_refungible(collection_id, item_id, value, sender.clone())?
+				},
+                _ => ()
+            };
+
+            // call event
+            Self::deposit_event(RawEvent::ItemTransfer(collection_id, item_id, value, sender.clone(), recipient));
+			Self::deposit_event(RawEvent::ItemLock(collection_id, item_id, value, sender));
 
             Ok(())
         }
