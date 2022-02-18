@@ -266,7 +266,6 @@ pub struct Royalty<AccountId, BlockNumber> {
     pub expired_at: BlockNumber,
 }
 
-
 #[derive(Debug, Eq, PartialEq)]
 pub enum TransferFromAccountError {
     InsufficientBalance,
@@ -310,6 +309,9 @@ decl_storage! {
 
         /// Balance owner per collection map
         pub Balance get(fn balance_count): double_map hasher(blake2_128_concat) u64, hasher(blake2_128_concat) T::AccountId => u64;
+
+		/// Lock amount owner per collection map
+        pub Locked get(fn locked_count): double_map hasher(blake2_128_concat) u64, hasher(blake2_128_concat) T::AccountId => u64;
 
         /// second parameter: item id + owner account id
         pub ApprovedList get(fn approved): double_map hasher(blake2_128_concat) u64, hasher(blake2_128_concat) (u64, T::AccountId) => Vec<ApprovePermissions<T::AccountId>>;
@@ -500,6 +502,7 @@ decl_module! {
             <AddressTokens<T>>::remove_prefix(collection_id);
             <ApprovedList<T>>::remove_prefix(collection_id);
             <Balance<T>>::remove_prefix(collection_id);
+			<Locked<T>>::remove_prefix(collection_id);
             <ItemListIndex>::remove(collection_id);
             <AdminList<T>>::remove(collection_id);
             <Collection<T>>::remove(collection_id);
@@ -801,6 +804,33 @@ decl_module! {
 
         #[weight = T::WeightInfo::transfer()]
         pub fn transfer(origin, recipient: T::AccountId, collection_id: u64, item_id: u64, value: u64) -> DispatchResult {
+
+            let sender = ensure_signed(origin)?;
+
+            let item_owner = Self::is_item_owner(sender.clone(), collection_id, item_id);
+            if !item_owner {
+                Self::check_white_list(collection_id, sender.clone())?;
+                Self::check_white_list(collection_id, recipient.clone())?;
+            }
+
+            let target_collection = <Collection<T>>::get(collection_id);
+
+            match target_collection.mode
+            {
+                CollectionMode::NFT(_) => Self::transfer_nft(collection_id, item_id, sender.clone(), recipient.clone())?,
+                CollectionMode::Fungible(_)  => Self::transfer_fungible(collection_id, item_id, value, sender.clone(), recipient.clone())?,
+                CollectionMode::ReFungible(_, _)  => Self::transfer_refungible(collection_id, item_id, value, sender.clone(), recipient.clone())?,
+                _ => ()
+            };
+
+            // call event
+            Self::deposit_event(RawEvent::ItemTransfer(collection_id, item_id, value, sender, recipient));
+
+            Ok(())
+        }
+
+		#[weight = T::WeightInfo::transfer()]
+        pub fn transfer_and_lock(origin, recipient: T::AccountId, collection_id: u64, item_id: u64, value: u64) -> DispatchResult {
 
             let sender = ensure_signed(origin)?;
 
@@ -2008,6 +2038,105 @@ impl<T: Config> NftManager<T::AccountId, T::BlockNumber> for Module<T> {
         <ApprovedList<T>>::remove(collection_id, (item_id, old_owner));
         Ok(())
     }
+
+	fn lock_fungible(
+		collection_id: u64,
+		item_id: u64,
+		lock_value: u64,
+		owner: T::AccountId
+	) -> DispatchResult {
+
+		ensure!(
+            <FungibleItemList<T>>::contains_key(collection_id, item_id),
+            "Item not exists"
+        );
+
+		let full_item = <FungibleItemList<T>>::get(collection_id, item_id);
+		let amount = full_item.value;
+
+		ensure!(amount >= lock_value.into(), "Item balance not enouth");
+
+		// update balance
+		let balance_old_owner = <Balance<T>>::get(collection_id, owner.clone())
+			.checked_sub(lock_value)
+			.unwrap();
+		let locked_new_owner = <Locked<T>>::get(collection_id, owner.clone())
+			.checked_add(lock_value)
+			.unwrap();
+		<Balance<T>>::insert(collection_id, owner.clone(), balance_old_owner);
+		<Locked<T>>::insert(collection_id, owner.clone(), locked_new_owner);
+
+		Ok(())
+	}
+
+	fn lock_refungible(
+		collection_id: u64,
+		item_id: u64,
+		lock_value: u64,
+		owner: T::AccountId,
+	) -> DispatchResult {
+
+		ensure!(
+            <ReFungibleItemList<T>>::contains_key(collection_id, item_id),
+            "Item not exists"
+        );
+
+		let full_item = <ReFungibleItemList<T>>::get(collection_id, item_id);
+		let item = full_item
+			.owner
+			.iter()
+			.filter(|i| i.owner == owner)
+			.next()
+			.unwrap();
+		let amount = item.fraction;
+
+		ensure!(amount >= lock_value.into(), "Item balance not enouth");
+
+		// update balance
+		let balance_old_owner = <Balance<T>>::get(collection_id, item.owner.clone())
+			.checked_sub(lock_value)
+			.unwrap();
+		<Balance<T>>::insert(collection_id, item.owner.clone(), balance_old_owner);
+
+		let locked_new_owner = <Locked<T>>::get(collection_id, item.owner.clone())
+			.checked_add(lock_value)
+			.unwrap();
+		<Locked<T>>::insert(collection_id, owner.clone(), locked_new_owner);
+
+		Ok(())
+	}
+
+	fn lock_nft(
+		collection_id: u64,
+		item_id: u64,
+		owner: T::AccountId,
+	) -> DispatchResult {
+
+		ensure!(
+            <NftItemList<T>>::contains_key(collection_id, item_id),
+            "Item not exists"
+        );
+
+		let item = <NftItemList<T>>::get(collection_id, item_id);
+
+		ensure!(
+            owner == item.owner,
+            "owner parameter and item owner must be equal"
+        );
+
+		// update balance
+		let balance_old_owner = <Balance<T>>::get(collection_id, item.owner.clone())
+			.checked_sub(1)
+			.unwrap();
+		<Balance<T>>::insert(collection_id, item.owner.clone(), balance_old_owner);
+
+		let locked_new_owner = <Locked<T>>::get(collection_id, item.owner.clone())
+			.checked_add(1)
+			.unwrap();
+		<Locked<T>>::insert(collection_id, item.owner.clone(), locked_new_owner);
+
+		Ok(())
+	}
 
     fn is_item_owner(subject: T::AccountId, collection_id: u64, item_id: u64) -> bool {
         let target_collection = <Collection<T>>::get(collection_id);
