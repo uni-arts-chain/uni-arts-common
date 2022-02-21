@@ -848,15 +848,15 @@ decl_module! {
             {
                 CollectionMode::NFT(_) => {
 					Self::transfer_nft(collection_id, item_id, sender.clone(), recipient.clone())?;
-					Self::lock_nft(collection_id, item_id, sender.clone())?
+					Self::lock_nft(collection_id, item_id, recipient.clone())?
 				},
                 CollectionMode::Fungible(_)  => {
 					Self::transfer_fungible(collection_id, item_id, value, sender.clone(), recipient.clone())?;
-					Self::lock_fungible(collection_id, item_id, value, sender.clone())?
+					Self::lock_fungible(collection_id, item_id, value, recipient.clone())?
 				},
                 CollectionMode::ReFungible(_, _)  => {
 					Self::transfer_refungible(collection_id, item_id, value, sender.clone(), recipient.clone())?;
-					Self::lock_refungible(collection_id, item_id, value, sender.clone())?
+					Self::lock_refungible(collection_id, item_id, value, recipient.clone())?
 				},
                 _ => ()
             };
