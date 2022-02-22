@@ -15,6 +15,9 @@ pub trait NftManager<AccountId, BlockNumber> {
 	fn lock_fungible(collection_id: u64, item_id: u64, lock_value: u64, owner: AccountId) -> DispatchResult;
 	fn lock_refungible(collection_id: u64, item_id: u64, lock_value: u64, owner: AccountId) -> DispatchResult;
 	fn lock_nft(collection_id: u64, item_id: u64, owner: AccountId) -> DispatchResult;
+	fn unlock_fungible(collection_id: u64, item_id: u64, lock_value: u64, owner: AccountId) -> DispatchResult;
+	fn unlock_refungible(collection_id: u64, item_id: u64, lock_value: u64, owner: AccountId) -> DispatchResult;
+	fn unlock_nft(collection_id: u64, item_id: u64, owner: AccountId) -> DispatchResult;
 }
 
 pub trait PriceProvider<CurrencyId> {

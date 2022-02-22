@@ -86,6 +86,11 @@ impl crate::WeightInfo for () {
 			.saturating_add(DbWeight::get().reads(5 as Weight))
 			.saturating_add(DbWeight::get().writes(3 as Weight))
 	}
+	fn unlock() -> Weight {
+		(66_234_000 as Weight)
+			.saturating_add(DbWeight::get().reads(5 as Weight))
+			.saturating_add(DbWeight::get().writes(3 as Weight))
+	}
     fn approve() -> Weight {
         (66_234_000 as Weight)
             .saturating_add(DbWeight::get().reads(5 as Weight))
