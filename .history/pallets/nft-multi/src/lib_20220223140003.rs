@@ -2389,23 +2389,16 @@ impl<T: Config> NftManager<T::AccountId, T::BlockNumber> for Module<T> {
             "owner parameter and item owner must be equal"
         );
 
-		let nft_group= (collection_id, item_id);
-
 		// update locked and balance
-		let locked_owner = <LockedItem<T>>::get(nft_group.clone(), item.owner.clone())
+		let locked_owner = <Locked<T>>::get(collection_id, item.owner.clone())
 			.checked_sub(1)
 			.unwrap();
-		<LockedItem<T>>::insert(nft_group.clone(), item.owner.clone(), locked_owner);
+		<Locked<T>>::insert(collection_id, item.owner.clone(), locked_owner);
 
 		let balance_owner = <Balance<T>>::get(collection_id, item.owner.clone())
 			.checked_add(1)
 			.unwrap();
 		<Balance<T>>::insert(collection_id, item.owner.clone(), balance_owner);
-
-		let balance_item_owner = <BalanceItem<T>>::get(nft_group.clone(), item.owner.clone())
-			.checked_add(1)
-			.unwrap();
-		<BalanceItem<T>>::insert(nft_group.clone(), item.owner.clone(), balance_item_owner);
 
 		Ok(())
 	}

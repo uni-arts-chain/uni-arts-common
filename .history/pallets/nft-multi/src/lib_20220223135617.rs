@@ -2194,15 +2194,11 @@ impl<T: Config> NftManager<T::AccountId, T::BlockNumber> for Module<T> {
 		let balance_old_owner = <Balance<T>>::get(collection_id, owner.clone())
 			.checked_sub(lock_value)
 			.unwrap();
-        let balance_item_old_owner = <BalanceItem<T>>::get(nft_group.clone(), owner.clone())
-			.checked_sub(lock_value)
-			.unwrap();
-		let locked_new_owner = <LockedItem<T>>::get(nft_group.clone(), owner.clone())
+		let locked_new_owner = <Locked<T>>::get(collection_id, owner.clone())
 			.checked_add(lock_value)
 			.unwrap();
 		<Balance<T>>::insert(collection_id, owner.clone(), balance_old_owner);
-		<BalanceItem<T>>::insert(nft_group.clone(), owner.clone(), balance_item_old_owner);
-		<LockedItem<T>>::insert(nft_group.clone(), owner.clone(), locked_new_owner);
+		<Locked<T>>::insert(collection_id, owner.clone(), locked_new_owner);
 
 		Ok(())
 	}
@@ -2224,23 +2220,17 @@ impl<T: Config> NftManager<T::AccountId, T::BlockNumber> for Module<T> {
 
 		ensure!(amount >= lock_value.into(), "Item balance not enouth");
 
-        let nft_group= (collection_id, item_id);
-
 		// update locked and balance
-		let locked_owner = <LockedItem<T>>::get(nft_group.clone(), owner.clone())
+		let locked_owner = <Balance<T>>::get(collection_id, owner.clone())
 			.checked_sub(lock_value)
 			.unwrap();
-		<LockedItem<T>>::insert(nft_group.clone(), owner.clone(), locked_owner);
+		<Locked<T>>::insert(collection_id, owner.clone(), locked_owner);
 
-		let balance_owner = <Balance<T>>::get(collection_id, owner.clone())
+		let balance_owner = <Locked<T>>::get(collection_id, owner.clone())
 			.checked_add(lock_value)
 			.unwrap();
 		<Balance<T>>::insert(collection_id, owner.clone(), balance_owner);
 
-		let balance_item_owner = <BalanceItem<T>>::get(nft_group.clone(), owner.clone())
-			.checked_add(lock_value)
-			.unwrap();
-		<BalanceItem<T>>::insert(nft_group.clone(), owner.clone(), balance_item_owner);
 		Ok(())
 	}
 
@@ -2267,23 +2257,16 @@ impl<T: Config> NftManager<T::AccountId, T::BlockNumber> for Module<T> {
 
 		ensure!(amount >= lock_value.into(), "Item balance not enouth");
 
-        let nft_group= (collection_id, item_id);
-
 		// update balance
 		let balance_old_owner = <Balance<T>>::get(collection_id, item.owner.clone())
 			.checked_sub(lock_value)
 			.unwrap();
 		<Balance<T>>::insert(collection_id, item.owner.clone(), balance_old_owner);
 
-		let balance_item_old_owner = <BalanceItem<T>>::get(nft_group.clone(), item.owner.clone())
-			.checked_sub(lock_value)
-			.unwrap();
-		<BalanceItem<T>>::insert(nft_group.clone(), item.owner.clone(), balance_item_old_owner);
-
-		let locked_new_owner = <LockedItem<T>>::get(nft_group.clone(), item.owner.clone())
+		let locked_new_owner = <Locked<T>>::get(collection_id, item.owner.clone())
 			.checked_add(lock_value)
 			.unwrap();
-		<LockedItem<T>>::insert(nft_group.clone(), item.owner.clone(), locked_new_owner);
+		<Locked<T>>::insert(collection_id, owner.clone(), locked_new_owner);
 
 		Ok(())
 	}
@@ -2311,23 +2294,16 @@ impl<T: Config> NftManager<T::AccountId, T::BlockNumber> for Module<T> {
 
 		ensure!(amount >= lock_value.into(), "Item balance not enouth");
 
-		let nft_group= (collection_id, item_id);
-
 		// update locked and balance
-		let locked_owner = <LockedItem<T>>::get(nft_group.clone(), item.owner.clone())
+		let locked_owner = <Locked<T>>::get(collection_id, item.owner.clone())
 			.checked_sub(lock_value)
 			.unwrap();
-		<LockedItem<T>>::insert(nft_group.clone(), owner.clone(), locked_owner);
+		<Locked<T>>::insert(collection_id, owner.clone(), locked_owner);
 
 		let balance_owner = <Balance<T>>::get(collection_id, item.owner.clone())
 			.checked_add(lock_value)
 			.unwrap();
 		<Balance<T>>::insert(collection_id, item.owner.clone(), balance_owner);
-
-		let balance_item_owner = <BalanceItem<T>>::get(nft_group.clone(), item.owner.clone())
-			.checked_add(lock_value)
-			.unwrap();
-		<BalanceItem<T>>::insert(nft_group.clone(), item.owner.clone(), balance_item_owner);
 
 		Ok(())
 	}
@@ -2350,23 +2326,16 @@ impl<T: Config> NftManager<T::AccountId, T::BlockNumber> for Module<T> {
             "owner parameter and item owner must be equal"
         );
 
-		let nft_group= (collection_id, item_id);
-
 		// update balance
 		let balance_old_owner = <Balance<T>>::get(collection_id, item.owner.clone())
 			.checked_sub(1)
 			.unwrap();
 		<Balance<T>>::insert(collection_id, item.owner.clone(), balance_old_owner);
 
-		let balance_item_old_owner = <BalanceItem<T>>::get(nft_group.clone(), item.owner.clone())
-			.checked_sub(1)
-			.unwrap();
-		<BalanceItem<T>>::insert(nft_group.clone(), item.owner.clone(), balance_item_old_owner);
-
-		let locked_new_owner = <LockedItem<T>>::get(nft_group.clone(), item.owner.clone())
+		let locked_new_owner = <Locked<T>>::get(collection_id, item.owner.clone())
 			.checked_add(1)
 			.unwrap();
-		<LockedItem<T>>::insert(nft_group.clone(), item.owner.clone(), locked_new_owner);
+		<Locked<T>>::insert(collection_id, item.owner.clone(), locked_new_owner);
 
 		Ok(())
 	}
@@ -2389,23 +2358,16 @@ impl<T: Config> NftManager<T::AccountId, T::BlockNumber> for Module<T> {
             "owner parameter and item owner must be equal"
         );
 
-		let nft_group= (collection_id, item_id);
-
 		// update locked and balance
-		let locked_owner = <LockedItem<T>>::get(nft_group.clone(), item.owner.clone())
+		let locked_owner = <Locked<T>>::get(collection_id, item.owner.clone())
 			.checked_sub(1)
 			.unwrap();
-		<LockedItem<T>>::insert(nft_group.clone(), item.owner.clone(), locked_owner);
+		<Locked<T>>::insert(collection_id, item.owner.clone(), locked_owner);
 
 		let balance_owner = <Balance<T>>::get(collection_id, item.owner.clone())
 			.checked_add(1)
 			.unwrap();
 		<Balance<T>>::insert(collection_id, item.owner.clone(), balance_owner);
-
-		let balance_item_owner = <BalanceItem<T>>::get(nft_group.clone(), item.owner.clone())
-			.checked_add(1)
-			.unwrap();
-		<BalanceItem<T>>::insert(nft_group.clone(), item.owner.clone(), balance_item_owner);
 
 		Ok(())
 	}
