@@ -12,6 +12,12 @@ pub trait NftManager<AccountId, BlockNumber> {
     fn transfer_refungible(collection_id: u64, item_id: u64, value: u64, sender: AccountId, new_owner: AccountId) -> DispatchResult;
     fn is_item_owner(subject: AccountId, collection_id: u64, item_id: u64) -> bool;
     fn charge_royalty(buyer: AccountId, collection_id: u64, item_id: u64, currency_id: CurrencyId, order_price: u64, now: BlockNumber) -> DispatchResult;
+	fn lock_fungible(collection_id: u64, item_id: u64, lock_value: u64, owner: AccountId) -> DispatchResult;
+	fn lock_refungible(collection_id: u64, item_id: u64, lock_value: u64, owner: AccountId) -> DispatchResult;
+	fn lock_nft(collection_id: u64, item_id: u64, owner: AccountId) -> DispatchResult;
+	fn unlock_fungible(collection_id: u64, item_id: u64, lock_value: u64, owner: AccountId) -> DispatchResult;
+	fn unlock_refungible(collection_id: u64, item_id: u64, lock_value: u64, owner: AccountId) -> DispatchResult;
+	fn unlock_nft(collection_id: u64, item_id: u64, owner: AccountId) -> DispatchResult;
 }
 
 pub trait PriceProvider<CurrencyId> {

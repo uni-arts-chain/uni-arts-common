@@ -9,7 +9,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 use sp_std::prelude::*;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
-	ApplyExtrinsicResult, generic, create_runtime_str, impl_opaque_keys, MultiSignature,
+	ApplyExtrinsicResult, generic, create_runtime_str, impl_opaque_keys, MultiSignature, ModuleId,
 	transaction_validity::{TransactionValidity, TransactionSource},
 };
 use sp_runtime::traits::{
@@ -32,7 +32,7 @@ pub use sp_runtime::{Permill, Perbill};
 use frame_system::EnsureRoot;
 pub use frame_support::{
 	construct_runtime, parameter_types, StorageValue,
-	traits::{KeyOwnerProofSystem, Randomness},
+	traits::{KeyOwnerProofSystem, Randomness, Currency, LockIdentifier},
 	weights::{
 		Weight, IdentityFee,
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
@@ -71,6 +71,9 @@ pub type Hash = sp_core::H256;
 
 /// Digest item type.
 pub type DigestItem = generic::DigestItem<Hash>;
+
+// Uni-Arts
+type Uart = Balances;
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats
@@ -142,6 +145,16 @@ parameter_types! {
 	pub BlockLength: frame_system::limits::BlockLength = frame_system::limits::BlockLength
 		::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
 	pub const SS58Prefix: u8 = 42;
+}
+
+parameter_types! {
+	pub const UniArtsTreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
+	pub const StakingModuleId: ModuleId = ModuleId(*b"staking_");
+	pub const UniArtsNftModuleId: ModuleId = ModuleId(*b"art/nftb");
+	pub const LotteryModuleId: ModuleId = ModuleId(*b"art/lotb");
+	pub const SocietyModuleId: ModuleId = ModuleId(*b"art/soci");
+	pub const ElectionsPhragmenModuleId: LockIdentifier = *b"art/phre";
+	pub ZeroAccountId: AccountId = AccountId::from([0u8; 32]);
 }
 
 // Configure FRAME pallets to include in runtime.
@@ -268,6 +281,41 @@ impl pallet_template::Config for Runtime {
 	type Event = Event;
 }
 
+/// Configure Names
+impl pallet_names::Config for Runtime {
+	type Name = Vec<u8>;
+	type Value = Vec<u8>;
+	type Currency = Uart;
+	type Event = Event;
+
+	fn get_name_fee(op: &pallet_names::Operation<Self>) -> Option<Balance> {
+		/* Single-letter names are not allowed (nor the empty name).  Everything
+		   else is fine.  */
+		if op.name.len() < 2 {
+			return None
+		}
+
+		Some(match op.operation {
+			pallet_names::OperationType::Registration => 1000,
+			pallet_names::OperationType::Update => 100,
+		})
+	}
+
+	fn get_expiration(op: &pallet_names::Operation<Self>) -> Option<BlockNumber> {
+		/* Short names (up to three characters) will expire after 10 blocks.
+		   Longer names will stick around forever.  */
+		if op.name.len() <= 3 {
+			Some(10)
+		} else {
+			None
+		}
+	}
+
+	fn deposit_fee(_b: <Self::Currency as Currency<AccountId>>::NegativeImbalance) {
+		/* Just burn the name fee by dropping the imbalance.  */
+	}
+}
+
 parameter_types! {
 	pub const AssetDepositBase: Balance = 100 * DOLLARS;
 	pub const AssetDepositPerZombie: Balance = 1 * DOLLARS;
@@ -291,6 +339,14 @@ impl pallet_assets::Config for Runtime {
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 }
 
+/// Used for the module nft in `./nft.rs`
+impl pallet_nft::Config for Runtime {
+	type ModuleId = UniArtsNftModuleId;
+	type Currency = Uart;
+	type Event = Event;
+	type WeightInfo = ();
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -309,6 +365,8 @@ construct_runtime!(
 		// Include the custom logic from the template pallet in the runtime.
 		TemplateModule: pallet_template::{Module, Call, Storage, Event<T>},
 		Assets: pallet_assets::{Module, Call, Storage, Event<T>},
+		Names: pallet_names::{Module, Call, Storage, Event<T>},
+		Nft: pallet_nft::{Module, Call, Storage, Event<T>},
 	}
 );
 
