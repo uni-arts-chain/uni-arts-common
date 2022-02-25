@@ -26,6 +26,9 @@ serde = { version = "1.0.101", optional = true }
 sha3 = { version = "0.9.1", default-features = false }
 support = {version = "3.0.0", package = "module-support",  path = "../../support", default-features = false }
 
+# orml
+orml-utilities = { default-features = false, version = '0.4.0' }
+
 uniarts-primitives = { version = "3.0.0", path = "../../primitives", default-features = false }
 
 [dev-dependencies]
