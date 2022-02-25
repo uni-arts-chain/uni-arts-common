@@ -59,6 +59,7 @@ pub trait WeightInfo {
     fn burn_item() -> Weight;
     fn transfer() -> Weight;
 	fn transfer_and_lock() -> Weight;
+	fn batch_create_nft_item() -> Weight;
 	fn unlock() -> Weight;
     fn approve() -> Weight;
     fn transfer_from() -> Weight;
@@ -814,6 +815,68 @@ decl_module! {
             Ok(())
         }
 
+		#[weight = T::WeightInfo::batch_create_nft_item()]
+        pub fn batch_create_nft_item(origin,
+            collection_id: u64,
+            properties: Vec<u8>,
+            owner: T::AccountId,
+			count: u64,
+            royalty_rate: u64,
+            royalty_expired_at: T::BlockNumber,
+        ) -> DispatchResult {
+
+            let sender = ensure_signed(origin)?;
+            Self::collection_exists(collection_id)?;
+            let target_collection = <Collection<T>>::get(collection_id);
+
+            if !Self::is_owner_or_admin_permissions(collection_id, sender.clone()) {
+                if target_collection.mint_mode == false {
+                    panic!("Collection is not in mint mode");
+                }
+
+                Self::check_white_list(collection_id, owner.clone())?;
+            }
+
+			if let CollectionMode::NFT(_) = target_collection.mode {
+				// check size
+				ensure!(target_collection.custom_data_size >= properties.len() as u32, "Size of item is too large");
+
+				let royalty = Royalty {
+					owner: sender.clone(),
+					rate: royalty_rate,
+					expired_at: royalty_expired_at,
+				};
+
+				for n in 1..=count {
+					// Generate next hash index ID
+					let hash_index_id = ItemHashIndex::get()
+						.checked_add(1)
+						.expect("hash index id error");
+					ItemHashIndex::put(hash_index_id);
+					let hasher = Keccak256::digest(&hash_index_id.to_be_bytes());
+					let item_hash: H160 = H160::from_slice(&hasher.as_slice()[0 .. 20]);
+
+					 // Create nft item
+                    let item = NftItemType {
+                        collection: collection_id,
+                        owner: owner.clone(),
+                        data: properties.clone(),
+                        item_hash: item_hash.clone(),
+                    };
+                    Self::add_nft_item(item)?;
+
+					let item_id = <ItemListIndex>::get(collection_id);
+            		<ItemRoyalty<T>>::insert(collection_id, item_id, royalty.clone());
+
+					// call event
+            		Self::deposit_event(RawEvent::ItemCreated(collection_id, <ItemListIndex>::get(collection_id)));
+				}
+			} else {
+				panic!("Collection is not NFT mode");
+			}
+            Ok(())
+        }
+
         #[weight = T::WeightInfo::burn_item()]
         pub fn burn_item(origin, collection_id: u64, item_id: u64) -> DispatchResult {
 
@@ -888,15 +951,15 @@ decl_module! {
             {
                 CollectionMode::NFT(_) => {
 					Self::transfer_nft(collection_id, item_id, sender.clone(), recipient.clone())?;
-					Self::lock_nft(collection_id, item_id, sender.clone())?
+					Self::lock_nft(collection_id, item_id, recipient.clone())?
 				},
                 CollectionMode::Fungible(_)  => {
 					Self::transfer_fungible(collection_id, item_id, value, sender.clone(), recipient.clone())?;
-					Self::lock_fungible(collection_id, item_id, value, sender.clone())?
+					Self::lock_fungible(collection_id, item_id, value, recipient.clone())?
 				},
                 CollectionMode::ReFungible(_, _)  => {
 					Self::transfer_refungible(collection_id, item_id, value, sender.clone(), recipient.clone())?;
-					Self::lock_refungible(collection_id, item_id, value, sender.clone())?
+					Self::lock_refungible(collection_id, item_id, value, recipient.clone())?
 				},
                 _ => ()
             };
