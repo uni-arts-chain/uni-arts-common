@@ -28,6 +28,7 @@ sha3 = { version = "0.9.1", default-features = false }
 orml-currencies = { default-features = false, version = '0.4.0' }
 orml-tokens = { default-features = false, version = '0.4.0' }
 orml-traits = { default-features = false, version = '0.4.0' }
+orml-utilities = { default-features = false, version = '0.4.0' }
 
 support = {version = "3.0.0", package = "module-support",  path = "../../support", default-features = false }
 uniarts-primitives = { version = "3.0.0", path = "../../primitives", default-features = false }

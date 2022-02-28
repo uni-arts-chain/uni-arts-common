@@ -29,6 +29,7 @@ use sp_core::H160;
 use sha3::{Digest, Keccak256};
 use support::{NftManager};
 use uniarts_primitives::CurrencyId;
+use orml_utilities::with_transaction_result;
 
 mod default_weight;
 
@@ -405,6 +406,7 @@ decl_error! {
 		NamesOwnerInvalid,
         WinningRateInvalid,
 		PermissionError,
+		CollectionModeInvalid,
 	}
 }
 
@@ -915,26 +917,31 @@ decl_module! {
 
             let target_collection = <Collection<T>>::get(collection_id);
 
-            match target_collection.mode
+            let result = match target_collection.mode
             {
-                CollectionMode::NFT(_) => {
+                CollectionMode::NFT(_) => with_transaction_result(|| {
 					Self::transfer_nft(collection_id, item_id, sender.clone(), recipient.clone())?;
-					Self::lock_nft(collection_id, item_id, recipient.clone())?
-				},
-                CollectionMode::Fungible(_)  => {
+					Self::lock_nft(collection_id, item_id, recipient.clone())
+				}),
+                CollectionMode::Fungible(_)  => with_transaction_result(|| {
 					Self::transfer_fungible(collection_id, item_id, value, sender.clone(), recipient.clone())?;
-					Self::lock_fungible(collection_id, item_id, value, recipient.clone())?
-				},
-                CollectionMode::ReFungible(_, _)  => {
+					Self::lock_fungible(collection_id, item_id, value, recipient.clone())
+				}),
+                CollectionMode::ReFungible(_, _)  => with_transaction_result(|| {
 					Self::transfer_refungible(collection_id, item_id, value, sender.clone(), recipient.clone())?;
-					Self::lock_refungible(collection_id, item_id, value, recipient.clone())?
-				},
-                _ => ()
+					Self::lock_refungible(collection_id, item_id, value, recipient.clone())
+				}),
+                _ => Err(Error::<T>::CollectionModeInvalid.into()),
             };
 
-            // call event
-            Self::deposit_event(RawEvent::ItemTransfer(collection_id, item_id, value, sender.clone(), recipient));
-			Self::deposit_event(RawEvent::ItemLock(collection_id, item_id, value, sender));
+			match result {
+				Ok(_) => {
+					// call event
+					Self::deposit_event(RawEvent::ItemTransfer(collection_id, item_id, value, sender.clone(), recipient));
+					Self::deposit_event(RawEvent::ItemLock(collection_id, item_id, value, sender));
+				},
+				Err(error) => panic!("Problem CollectionMode: {:?}", error),
+			};
 
             Ok(())
         }
