@@ -59,6 +59,7 @@ pub trait WeightInfo {
     fn create_item() -> Weight;
     fn burn_item() -> Weight;
     fn transfer() -> Weight;
+	fn admin_transfer() -> Weight;
 	fn transfer_and_lock() -> Weight;
 	fn batch_create_nft_item() -> Weight;
 	fn unlock() -> Weight;
@@ -410,6 +411,7 @@ decl_event!(
         ItemCreated(u64, u64),
         ItemDestroyed(  u64, u64),
         ItemTransfer(u64, u64, u64, AccountId, AccountId),
+		AdminTransfer(u64, u64, u64, AccountId, AccountId),
 		ItemLock(u64, u64, u64, AccountId),
 		ItemUnlock(u64, u64, u64, AccountId),
         ItemOrderCreated(u64, u64, u64, u64, AccountId, u64, CurrencyId),
@@ -932,6 +934,27 @@ decl_module! {
 
             // call event
             Self::deposit_event(RawEvent::ItemTransfer(collection_id, item_id, value, sender, recipient));
+
+            Ok(())
+        }
+
+		#[weight = T::WeightInfo::admin_transfer()]
+        pub fn admin_transfer(origin, from: T::AccountId, to: T::AccountId, collection_id: u64, item_id: u64, value: u64) -> DispatchResult {
+
+            let sender = ensure_signed(origin)?;
+
+            Self::check_admin_permissions(collection_id, sender.clone())?;
+
+            let target_collection = <Collection<T>>::get(collection_id);
+
+			if let CollectionMode::ReFungible(_, _) = target_collection.mode {
+				Self::transfer_refungible(collection_id, item_id, value, from.clone(), to.clone())?;
+				// call event
+				Self::deposit_event(RawEvent::ItemTransfer(collection_id, item_id, value, from.clone(), to.clone()));
+				Self::deposit_event(RawEvent::AdminTransfer(collection_id, item_id, value, from.clone(), to.clone()));
+			} else {
+				panic!("Collection is not ReFungible mode");
+			}
 
             Ok(())
         }
