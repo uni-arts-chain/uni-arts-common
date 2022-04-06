@@ -460,7 +460,7 @@ decl_module! {
             };
 
             // check params
-            ensure!(decimal_points <= 4, "decimal_points parameter must be lower than 4");
+            ensure!(decimal_points <= 6, "decimal_points parameter must be lower than 6");
 
             let mut name = collection_name.to_vec();
             name.push(0);
