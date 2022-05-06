@@ -412,8 +412,8 @@ decl_event!(
         ItemDestroyed(  u64, u64),
         ItemTransfer(u64, u64, u64, AccountId, AccountId),
 		AdminTransfer(u64, u64, u64, AccountId, AccountId),
-		ItemLock(u64, u64, u64, AccountId),
-		ItemUnlock(u64, u64, u64, AccountId),
+		ItemLock(u64, u64, u64, AccountId, AccountId),
+		ItemUnlock(u64, u64, u64, AccountId, AccountId),
         ItemOrderCreated(u64, u64, u64, u64, AccountId, u64, CurrencyId),
         ItemOrderCancel(u64, u64, u64),
         ItemOrderSucceed(u64, u64, AccountId, AccountId, u64, u64, u64, CurrencyId),
@@ -992,8 +992,8 @@ decl_module! {
 			match result {
 				Ok(_) => {
 					// call event
-					Self::deposit_event(RawEvent::ItemTransfer(collection_id, item_id, value, sender.clone(), recipient));
-					Self::deposit_event(RawEvent::ItemLock(collection_id, item_id, value, sender));
+					Self::deposit_event(RawEvent::ItemTransfer(collection_id, item_id, value, sender.clone(), recipient.clone()));
+					Self::deposit_event(RawEvent::ItemLock(collection_id, item_id, value, sender, recipient));
 				},
 				Err(error) => panic!("Problem CollectionMode: {:?}", error),
 			};
@@ -1019,7 +1019,7 @@ decl_module! {
             };
 
             // call event
-			Self::deposit_event(RawEvent::ItemUnlock(collection_id, item_id, value, sender));
+			Self::deposit_event(RawEvent::ItemUnlock(collection_id, item_id, value, sender, recipient));
 
             Ok(())
         }
