@@ -407,6 +407,7 @@ decl_error! {
         WinningRateInvalid,
 		PermissionError,
 		CollectionModeInvalid,
+		AmountValueError,
 	}
 }
 
@@ -1984,6 +1985,8 @@ impl<T: Config> NftManager<T::AccountId, T::BlockNumber> for Module<T> {
             "Item not exists"
         );
 
+        ensure!(value > Zero::zero(), Error::<T>::AmountValueError);
+
         let full_item = <FungibleItemList<T>>::get(collection_id, item_id);
         let amount = full_item.value;
         let item_hash = full_item.item_hash;
@@ -2095,6 +2098,8 @@ impl<T: Config> NftManager<T::AccountId, T::BlockNumber> for Module<T> {
             <ReFungibleItemList<T>>::contains_key(collection_id, item_id),
             "Item not exists"
         );
+
+        ensure!(value > Zero::zero(), Error::<T>::AmountValueError);
 
         let full_item = <ReFungibleItemList<T>>::get(collection_id, item_id);
         let item = full_item
