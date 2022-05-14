@@ -4,11 +4,8 @@
 //! to drip free tokens to other accounts (recipients).
 //!
 //! Currently, only sudo account can add, update and remove faucets.
-//! But this can be changed in the future to allow anyone else
-//! to set up new faucets for their needs.
-//!
-//! This would allow each space to create its own faucet(s) and distribute its tokens to its
-//! members based on a set of conditions the space decides suits the needs of its community.
+//! Collection rules: recipients need to hold NFT
+
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -274,8 +271,8 @@ decl_module! {
 
 		#[weight = (100_000, DispatchClass::Normal, Pays::No)]
         pub fn drip(
-            origin, // Should be a faucet account
-            faucet: T::AccountId,
+            origin,
+            faucet: T::AccountId,  // Should be a faucet account
            	nft_collection_id: u64,
             amount: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
