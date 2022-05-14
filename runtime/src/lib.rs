@@ -347,6 +347,11 @@ impl pallet_nft::Config for Runtime {
 	type WeightInfo = ();
 }
 
+// impl pallet_faucets::Config for Runtime {
+// 	type Event = Event;
+// 	type Currency = Uart;
+// }
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -367,6 +372,7 @@ construct_runtime!(
 		Assets: pallet_assets::{Module, Call, Storage, Event<T>},
 		Names: pallet_names::{Module, Call, Storage, Event<T>},
 		Nft: pallet_nft::{Module, Call, Storage, Event<T>},
+		// Faucets: pallet_faucets::{Module, Call, Storage, Event<T>},
 	}
 );
 
