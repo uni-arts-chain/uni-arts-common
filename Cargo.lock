@@ -4013,6 +4013,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-balances",
+ "pallet-nft-multi",
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
@@ -4021,6 +4022,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "uniarts-primitives",
 ]
 
 [[package]]

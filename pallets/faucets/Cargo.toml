@@ -22,6 +22,9 @@ sp-runtime = { version = "3.0.0", default-features = false }
 pallet-balances = { version = "3.0.0", default-features = false }
 pallet-timestamp = { version = "3.0.0", default-features = false }
 
+uniarts-primitives = { version = "3.0.0", path = "../../primitives", default-features = false }
+pallet-nft-multi = { path = "../nft-multi", default-features = false }
+
 [dev-dependencies]
 serde = { version = '1.0.119' }
 sp-io = { version = "3.0.0", default-features = false}

@@ -28,6 +28,7 @@ use sp_std::{
     collections::btree_set::BTreeSet,
     prelude::*,
 };
+use pallet_nft_multi as pallet_nft;
 
 #[cfg(test)]
 mod mock;
@@ -59,8 +60,27 @@ pub struct FaucetUpdate<BlockNumber, Balance> {
 
 type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
 
+impl<T: Config> Faucet<T> {
+
+    pub fn new(
+        period: T::BlockNumber,
+        period_limit: BalanceOf<T>,
+        drip_limit: BalanceOf<T>,
+    ) -> Self {
+        Self {
+            enabled: true,
+            period,
+            period_limit,
+            drip_limit,
+
+            next_period_at: Zero::zero(),
+            dripped_in_current_period: Zero::zero(),
+        }
+    }
+}
+
 /// The pallet's configuration trait.
-pub trait Config: system::Config {
+pub trait Config: system::Config + pallet_nft::Config {
 
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
@@ -115,6 +135,8 @@ decl_error! {
 
         PeriodLimitReached,
         DripLimitReached,
+        ZeroNftCollectId,
+        NotEnoughBalanceOnNft,
     }
 }
 
@@ -148,8 +170,8 @@ decl_module! {
             );
 
             ensure!(
-                T::Currency::free_balance(&faucet) >=
-                T::Currency::minimum_balance(),
+                <T as Config>::Currency::free_balance(&faucet) >=
+                <T as Config>::Currency::minimum_balance(),
                 Error::<T>::NoFreeBalanceOnFaucet
             );
 
@@ -253,21 +275,25 @@ decl_module! {
 		#[weight = (100_000, DispatchClass::Normal, Pays::No)]
         pub fn drip(
             origin, // Should be a faucet account
-            recipient: T::AccountId,
+            faucet: T::AccountId,
+           	nft_collection_id: u64,
             amount: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
-            let faucet = ensure_signed(origin)?;
+            let recipient = ensure_signed(origin)?;
 
             // Validate input values
-            ensure!(faucet != recipient, Error::<T>::RecipientEqualsFaucet);
             ensure!(amount > Zero::zero(), Error::<T>::ZeroDripAmountProvided);
+            ensure!(nft_collection_id > Zero::zero(), Error::<T>::ZeroNftCollectId);
 
             let mut settings = Self::require_faucet(&faucet)?;
             ensure!(settings.enabled, Error::<T>::FaucetDisabled);
             ensure!(amount <= settings.drip_limit, Error::<T>::DripLimitReached);
 
-            let faucet_balance = T::Currency::free_balance(&faucet);
+            let faucet_balance = <T as Config>::Currency::free_balance(&faucet);
             ensure!(amount <= faucet_balance, Error::<T>::NotEnoughFreeBalanceOnFaucet);
+
+            // Validate user Nft balance
+            Self::ensure_hold_nft_not_zero(&recipient, nft_collection_id)?;
 
             let current_block = <system::Pallet<T>>::block_number();
 
@@ -283,7 +309,7 @@ decl_module! {
 
             ensure!(amount <= tokens_left_in_current_period, Error::<T>::PeriodLimitReached);
 
-            T::Currency::transfer(
+            <T as Config>::Currency::transfer(
                 &faucet,
                 &recipient,
                 amount,
@@ -307,6 +333,13 @@ impl<T: Config> Module<T> {
         Ok(Self::faucet_by_account(faucet).ok_or(Error::<T>::FaucetNotFound)?)
     }
 
+    fn ensure_hold_nft_not_zero(faucet: &T::AccountId, nft_collect_id: u64) -> DispatchResult {
+    	let balance = pallet_nft::Module::<T>::balance_count(nft_collect_id, faucet.clone());
+    	let lock = pallet_nft::Module::<T>::locked_count(nft_collect_id, faucet.clone());
+    	ensure!(balance + lock > Zero::zero(), Error::<T>::NotEnoughBalanceOnNft);
+        Ok(())
+    }
+
     fn ensure_period_not_zero(period: T::BlockNumber) -> DispatchResult {
         ensure!(period > Zero::zero(), Error::<T>::ZeroPeriodProvided);
         Ok(())
@@ -325,24 +358,5 @@ impl<T: Config> Module<T> {
     fn ensure_drip_limit_lte_period_limit(drip_limit: BalanceOf<T>, period_limit: BalanceOf<T>) -> DispatchResult {
         ensure!(drip_limit <= period_limit, Error::<T>::DripLimitCannotExceedPeriodLimit);
         Ok(())
-    }
-}
-
-impl<T: Config> Faucet<T> {
-
-    pub fn new(
-        period: T::BlockNumber,
-        period_limit: BalanceOf<T>,
-        drip_limit: BalanceOf<T>,
-    ) -> Self {
-        Self {
-            enabled: true,
-            period,
-            period_limit,
-            drip_limit,
-
-            next_period_at: Zero::zero(),
-            dripped_in_current_period: Zero::zero(),
-        }
     }
 }
