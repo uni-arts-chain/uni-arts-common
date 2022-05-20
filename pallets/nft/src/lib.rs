@@ -54,6 +54,7 @@ pub trait WeightInfo {
     fn remove_collection_sponsor() -> Weight;
     fn create_item() -> Weight;
     fn burn_item() -> Weight;
+    fn update_item_properties() -> Weight;
     fn transfer() -> Weight;
 	fn transfer_and_lock() -> Weight;
 	fn batch_create_nft_item() -> Weight;
@@ -382,6 +383,7 @@ decl_event!(
         Created(u64, u8, AccountId),
         ItemCreated(u64, u64),
         ItemDestroyed(u64, u64),
+        ItemUpdated(u64, u64),
         ItemTransfer(u64, u64, u64, AccountId, AccountId),
 		ItemLock(u64, u64, u64, AccountId, AccountId),
         ItemUnlock(u64, u64, u64, AccountId, AccountId),
@@ -408,6 +410,7 @@ decl_error! {
 		PermissionError,
 		CollectionModeInvalid,
 		AmountValueError,
+        NotSupportedForType,
 	}
 }
 
@@ -845,6 +848,65 @@ decl_module! {
 			} else {
 				panic!("Collection is not NFT mode");
 			}
+            Ok(())
+        }
+
+        #[weight = T::WeightInfo::update_item_properties()]
+        pub fn update_item_properties(origin, collection_id: u64, item_id: u64, properties: Vec<u8>) -> DispatchResult {
+
+            let sender = ensure_signed(origin)?;
+            Self::collection_exists(collection_id)?;
+            let item_owner = Self::is_item_owner(sender.clone(), collection_id, item_id);
+            if !item_owner
+            {
+                if !Self::is_owner_or_admin_permissions(collection_id, sender.clone()) {
+                    Self::check_white_list(collection_id, sender.clone())?;
+                }
+            }
+            let target_collection = <Collection<T>>::get(collection_id);
+
+            match target_collection.mode
+            {
+                CollectionMode::NFT(_) => {
+                    // check size
+                    ensure!(target_collection.custom_data_size >= properties.len() as u32, "Size of item is too large");
+                    ensure!(
+                        <NftItemList<T>>::contains_key(collection_id, item_id),
+                        "Item not exists"
+                    );
+
+
+                    <NftItemList<T>>::mutate(collection_id, item_id, |item| {
+                        item.data = properties.clone();
+                    });
+
+                },
+                CollectionMode::Fungible(_) => {
+                    ensure!(1 == 0, Error::<T>::NotSupportedForType);
+                },
+                CollectionMode::ReFungible(_, _) => {
+                    // check size
+                    ensure!(target_collection.custom_data_size >= properties.len() as u32, "Size of item is too large");
+                    ensure!(
+                        <ReFungibleItemList<T>>::contains_key(collection_id, item_id),
+                        "Item not exists"
+                    );
+
+
+                    <ReFungibleItemList<T>>::mutate(collection_id, item_id, |item| {
+                        item.data = properties.clone();
+                    });
+                },
+                _ => {
+                    ensure!(1 == 0, Error::<T>::NotSupportedForType);
+                },
+
+            };
+
+
+            // call event
+            Self::deposit_event(RawEvent::ItemUpdated(collection_id, item_id));
+
             Ok(())
         }
 
@@ -1765,6 +1827,7 @@ impl<T: Config> Module<T> {
 
         Ok(())
     }
+
 
     fn burn_nft_item(collection_id: u64, item_id: u64) -> DispatchResult {
         ensure!(
