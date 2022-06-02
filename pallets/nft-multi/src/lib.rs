@@ -2616,10 +2616,11 @@ impl<T: Config> NftManager<T::AccountId, T::BlockNumber> for Module<T> {
                 <FungibleItemList<T>>::get(collection_id, item_id).owner == subject
             }
             CollectionMode::ReFungible(_, _) => {
-                <ReFungibleItemList<T>>::get(collection_id, item_id)
-                    .owner
-                    .iter()
-                    .any(|i| i.owner == subject)
+                // <ReFungibleItemList<T>>::get(collection_id, item_id)
+                //     .owner
+                //     .iter()
+                //     .any(|i| i.owner == subject)
+                <BalanceItem<T>>::get((collection_id, item_id), subject) > 0
             }
             CollectionMode::Invalid => false,
         }
