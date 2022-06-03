@@ -2620,7 +2620,9 @@ impl<T: Config> NftManager<T::AccountId, T::BlockNumber> for Module<T> {
                 //     .owner
                 //     .iter()
                 //     .any(|i| i.owner == subject)
-                <BalanceItem<T>>::get((collection_id, item_id), subject) > 0
+				let balance: u64 = <BalanceItem<T>>::get((collection_id, item_id), subject.clone());
+				let lock: u64 = <LockedItem<T>>::get((collection_id, item_id), subject.clone());
+				balance + lock > 0
             }
             CollectionMode::Invalid => false,
         }
