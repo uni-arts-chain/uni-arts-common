@@ -18,7 +18,7 @@ pub use frame_support::{
     }, StorageValue, debug,
 };
 
-use frame_system::{self as system, ensure_signed};
+use frame_system::{self as system, ensure_signed, ensure_root};
 use sp_runtime::sp_std::prelude::Vec;
 use sp_runtime::{
     ModuleId,
@@ -80,6 +80,7 @@ pub trait WeightInfo {
     fn bid() -> Weight;
     fn finish_auction() -> Weight;
     fn nft_lock() -> Weight;
+	fn update_admin_transfer_mode() -> Weight;
 }
 
 /// Storage version.
@@ -133,6 +134,31 @@ impl Default for AccessMode {
 impl Default for CollectionMode {
     fn default() -> Self {
         Self::Invalid
+    }
+}
+
+#[derive(Encode, Decode, Debug, Clone, PartialEq)]
+pub enum LockReason {
+    InvalidLock,
+    NftExchange,
+    SerialNumberExchange,
+    CooperationExchange,
+}
+
+impl Default for LockReason {
+    fn default() -> Self {
+        Self::InvalidLock
+    }
+}
+
+impl Into<u64> for LockReason {
+    fn into(self) -> u64 {
+        match self {
+            LockReason::InvalidLock => 0,
+            LockReason::NftExchange => 1,
+            LockReason::SerialNumberExchange => 2,
+            LockReason::CooperationExchange => 3,
+        }
     }
 }
 
@@ -335,6 +361,8 @@ decl_storage! {
         /// Item Certificate number index
         pub ItemHashIndex get(fn item_hash_index): u64;
 
+		pub AdminTransferMode get(fn admin_transfer_mode): bool;
+
         pub Collection get(fn collection): map hasher(identity) u64 => CollectionType<T::AccountId>;
 
         pub AdminList get(fn admin_list_collection): map hasher(identity) u64 => Vec<T::AccountId>;
@@ -429,6 +457,7 @@ decl_event!(
         AuctionSucceed(u64, u64, u64, u64, u64, AccountId, AccountId, CurrencyId),
         AuctionCancel(u64, u64, u64),
         NftLock(u64, u64, u64, AccountId, AccountId, u64),
+		AdminTransferMode(bool),
     }
 );
 
@@ -442,6 +471,7 @@ decl_error! {
 		CollectionModeInvalid,
 		AmountValueError,
         NotSupportedForType,
+		TransferModeInvalid,
 	}
 }
 
@@ -472,6 +502,21 @@ decl_module! {
             0
         }
 
+		#[weight = T::WeightInfo::update_admin_transfer_mode()]
+		pub fn update_admin_transfer_mode(origin, is_active: bool) -> DispatchResult {
+            ensure_root(origin)?;
+
+			let current_mode = AdminTransferMode::get();
+            ensure!(
+                current_mode != is_active,
+                Error::<T>::TransferModeInvalid
+            );
+
+			AdminTransferMode::put(is_active);
+            Self::deposit_event(RawEvent::AdminTransferMode(is_active));
+            Ok(())
+        }
+
         // Create collection of NFT with given parameters
         //
         // @param customDataSz size of custom data in each collection item
@@ -499,7 +544,7 @@ decl_module! {
             };
 
             // check params
-            ensure!(decimal_points <= 6, "decimal_points parameter must be lower than 4");
+            ensure!(decimal_points <= 6, "decimal_points parameter must be lower than 6");
 
             let mut name = collection_name.to_vec();
             name.push(0);
@@ -1008,6 +1053,9 @@ decl_module! {
 
             let sender = ensure_signed(origin)?;
 
+			let current_mode = AdminTransferMode::get();
+            ensure!(current_mode == true,  Error::<T>::TransferModeInvalid);
+
             Self::check_admin_permissions(collection_id, sender.clone())?;
 
             let target_collection = <Collection<T>>::get(collection_id);
@@ -1090,7 +1138,7 @@ decl_module! {
         }
 
         #[weight = T::WeightInfo::nft_lock()]
-        pub fn nft_lock(origin, collection_id: u64, item_id: u64, value: u64, reason: u64) -> DispatchResult {
+        pub fn nft_lock(origin, collection_id: u64, item_id: u64, value: u64, reason: LockReason) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
             let item_owner = Self::is_item_owner(sender.clone(), collection_id, item_id);
@@ -1116,7 +1164,7 @@ decl_module! {
             match result {
 				Ok(_) => {
 					// call event
-					Self::deposit_event(RawEvent::NftLock(collection_id, item_id, value, sender.clone(), sender.clone(), reason));
+					Self::deposit_event(RawEvent::NftLock(collection_id, item_id, value, sender.clone(), sender.clone(), reason.into()));
 				},
 				Err(error) => panic!("Problem CollectionMode: {:?}", error),
 			};

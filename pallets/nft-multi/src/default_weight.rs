@@ -187,4 +187,10 @@ impl crate::WeightInfo for () {
             .saturating_add(DbWeight::get().reads(5 as Weight))
             .saturating_add(DbWeight::get().writes(3 as Weight))
     }
+
+	fn update_admin_transfer_mode() -> Weight {
+		(66_234_000 as Weight)
+			.saturating_add(DbWeight::get().reads(5 as Weight))
+			.saturating_add(DbWeight::get().writes(3 as Weight))
+	}
 }

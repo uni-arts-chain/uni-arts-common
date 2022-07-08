@@ -116,6 +116,31 @@ impl Default for CollectionMode {
     }
 }
 
+#[derive(Encode, Decode, Debug, Clone, PartialEq)]
+pub enum LockReason {
+    InvalidLock,
+    NftExchange,
+    SerialNumberExchange,
+    CooperationExchange,
+}
+
+impl Default for LockReason {
+    fn default() -> Self {
+        Self::InvalidLock
+    }
+}
+
+impl Into<u64> for LockReason {
+    fn into(self) -> u64 {
+        match self {
+            LockReason::InvalidLock => 0,
+            LockReason::NftExchange => 1,
+            LockReason::SerialNumberExchange => 2,
+            LockReason::CooperationExchange => 3,
+        }
+    }
+}
+
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct Ownership<AccountId> {
@@ -1035,7 +1060,7 @@ decl_module! {
         }
 
         #[weight = T::WeightInfo::nft_lock()]
-        pub fn nft_lock(origin, collection_id: u64, item_id: u64, value: u64, reason: u64) -> DispatchResult {
+        pub fn nft_lock(origin, collection_id: u64, item_id: u64, value: u64, reason: LockReason) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
             let item_owner = Self::is_item_owner(sender.clone(), collection_id, item_id);
@@ -1061,7 +1086,7 @@ decl_module! {
             match result {
 				Ok(_) => {
 					// call event
-					Self::deposit_event(RawEvent::NftLock(collection_id, item_id, value, sender.clone(), sender.clone(), reason));
+					Self::deposit_event(RawEvent::NftLock(collection_id, item_id, value, sender.clone(), sender.clone(), reason.into()));
 				},
 				Err(error) => panic!("Problem CollectionMode: {:?}", error),
 			};
