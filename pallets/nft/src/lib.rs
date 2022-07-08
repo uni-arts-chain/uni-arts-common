@@ -399,7 +399,7 @@ decl_event!(
         AuctionBid(u64, u64, u64, u64, u64, AccountId),
         AuctionSucceed(u64, u64, u64, u64, u64, AccountId, AccountId),
         AuctionCancel(u64, u64, u64),
-        NftLock(u64, u64, u64, AccountId, AccountId),
+        NftLock(u64, u64, u64, AccountId, AccountId, u64),
     }
 );
 
@@ -1035,13 +1035,8 @@ decl_module! {
         }
 
         #[weight = T::WeightInfo::nft_lock()]
-        pub fn nft_lock(origin, collection_id: u64, item_id: u64, value: u64) -> DispatchResult {
+        pub fn nft_lock(origin, collection_id: u64, item_id: u64, value: u64, reason: u64) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-
-            ensure!(
-                <NftItemList<T>>::contains_key(collection_id, item_id),
-                "Item not exists"
-            );
 
             let item_owner = Self::is_item_owner(sender.clone(), collection_id, item_id);
             if !item_owner {
@@ -1066,7 +1061,7 @@ decl_module! {
             match result {
 				Ok(_) => {
 					// call event
-					Self::deposit_event(RawEvent::NftLock(collection_id, item_id, value, sender.clone(), sender.clone()));
+					Self::deposit_event(RawEvent::NftLock(collection_id, item_id, value, sender.clone(), sender.clone(), reason));
 				},
 				Err(error) => panic!("Problem CollectionMode: {:?}", error),
 			};
