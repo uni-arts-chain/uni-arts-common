@@ -79,6 +79,7 @@ pub trait WeightInfo {
     fn cancel_auction() -> Weight;
     fn bid() -> Weight;
     fn finish_auction() -> Weight;
+    fn nft_lock() -> Weight;
 }
 
 /// Storage version.
@@ -1085,6 +1086,47 @@ decl_module! {
 			Self::deposit_event(RawEvent::ItemUnlock(collection_id, item_id, value, sender, recipient));
 
             Ok(())
+        }
+
+        #[weight = T::WeightInfo::nft_lock()]
+        pub fn nft_lock(origin, collection_id: u64, item_id: u64, value: u64) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+
+            ensure!(
+                <NftItemList<T>>::contains_key(collection_id, item_id),
+                "Item not exists"
+            );
+
+            let item_owner = Self::is_item_owner(sender.clone(), collection_id, item_id);
+            if !item_owner {
+                Self::check_white_list(collection_id, sender.clone())?;
+            }
+
+            let target_collection = <Collection<T>>::get(collection_id);
+
+            let result = match target_collection.mode {
+                CollectionMode::NFT(_) => {
+                    Self::lock_nft(collection_id, item_id, sender.clone())
+                },
+                CollectionMode::Fungible(_) => {
+                    Self::lock_fungible(collection_id, item_id, value, sender.clone())
+                },
+                CollectionMode::ReFungible(_, _)  => {
+                    Self::lock_refungible(collection_id, item_id, value, sender.clone())
+                },
+                 _ => Err(Error::<T>::CollectionModeInvalid.into()),
+            };
+
+            match result {
+				Ok(_) => {
+					// call event
+					Self::deposit_event(RawEvent::ItemLock(collection_id, item_id, value, sender.clone(), sender.clone()));
+				},
+				Err(error) => panic!("Problem CollectionMode: {:?}", error),
+			};
+
+            Ok(())
+
         }
 
         #[weight = T::WeightInfo::approve()]
