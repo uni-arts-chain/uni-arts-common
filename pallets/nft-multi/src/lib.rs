@@ -428,6 +428,7 @@ decl_event!(
         AuctionBid(u64, u64, u64, u64, u64, AccountId, CurrencyId),
         AuctionSucceed(u64, u64, u64, u64, u64, AccountId, AccountId, CurrencyId),
         AuctionCancel(u64, u64, u64),
+        NftLock(u64, u64, u64, AccountId, AccountId),
     }
 );
 
@@ -1120,7 +1121,7 @@ decl_module! {
             match result {
 				Ok(_) => {
 					// call event
-					Self::deposit_event(RawEvent::ItemLock(collection_id, item_id, value, sender.clone(), sender.clone()));
+					Self::deposit_event(RawEvent::NftLock(collection_id, item_id, value, sender.clone(), sender.clone()));
 				},
 				Err(error) => panic!("Problem CollectionMode: {:?}", error),
 			};
