@@ -143,6 +143,7 @@ pub enum LockReason {
     NftExchange,
     SerialNumberExchange,
     CooperationExchange,
+	RechargeLock,
 }
 
 impl Default for LockReason {
@@ -158,6 +159,7 @@ impl Into<u64> for LockReason {
             LockReason::NftExchange => 1,
             LockReason::SerialNumberExchange => 2,
             LockReason::CooperationExchange => 3,
+			LockReason::RechargeLock => 4,
         }
     }
 }
